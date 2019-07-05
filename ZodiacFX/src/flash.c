@@ -322,7 +322,7 @@ int xmodem_xfer(void)
 			byte_ctr++;
 		}
 		timeout_clock++;
-		if(timeout_upload > 6)
+		if(timeout_upload > 12)
 		{
 			return;
 		}

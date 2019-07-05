@@ -42,7 +42,6 @@
 #include "command.h"
 #include "eeprom.h"
 #include "switch.h"
-#include "http.h"
 #include "flash.h"
 #include "openflow/openflow.h"
 #include "ksz8795clx/ethernet_phy.h"
@@ -161,9 +160,6 @@ int main (void)
 
 	/* Initialize timer. */
 	sys_init_timing();
-	
-	/* Initialize HTTP server. */
-	http_init();
 	
 	// Create port map
 	int v,p;

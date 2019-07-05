@@ -54,20 +54,11 @@ extern bool debug_output;
 
 extern int charcount, charcount_last;
 extern struct ofp_flow_mod *flow_match10[MAX_FLOWS_10];
-extern struct ofp13_flow_mod *flow_match13[MAX_FLOWS_13];
-extern struct group_entry13 group_entry13[MAX_GROUPS];
-extern struct action_bucket action_bucket[MAX_BUCKETS];
-extern uint8_t *ofp13_oxm_match[MAX_FLOWS_13];
-extern uint8_t *ofp13_oxm_inst[MAX_FLOWS_13];
-extern uint16_t ofp13_oxm_inst_size[MAX_FLOWS_13];
+extern int iLastFlow;
 extern struct flows_counter flow_counters[MAX_FLOWS_13];
 extern struct flow_tbl_actions *flow_actions10[MAX_FLOWS_13];
-extern int iLastFlow;
 extern struct ofp10_port_stats phys10_port_stats[TOTAL_PORTS];
-extern struct ofp13_port_stats phys13_port_stats[TOTAL_PORTS];
 extern struct table_counter table_counters[MAX_TABLES];
-extern struct meter_entry13 *meter_entry[MAX_METER_13];
-extern struct meter_band_stats_array band_stats_array[MAX_METER_13];
 extern bool trace = false;
 extern struct tcp_pcb *tcp_pcb;
 extern uint8_t port_status[TOTAL_PORTS];
@@ -75,7 +66,6 @@ extern int totaltime;
 extern int32_t ul_temp;
 extern int OF_Version;
 extern uint32_t uid_buf[4];
-extern bool restart_required_outer;
 
 // Local Variables
 bool showintro = true;
@@ -150,12 +140,6 @@ void task_command(char *str, char *str_last)
 	char *param2;
 	char *param3;
 	char *pch;
-
-	if(restart_required_outer == true)
-	{
-		printf("Restarting the Zodiac FX, please reopen your terminal application.\r\n");
-		software_reset();
-	}
 
 	while(udi_cdc_is_rx_ready()){
 		ch = udi_cdc_getc();
@@ -318,7 +302,7 @@ void command_root(char *command, char *param1, char *param2, char *param3)
 	// Display firmware version
 	if (strcmp(command, "show") == 0 && strcmp(param1, "version") == 0)
 	{
-		printf("Firmware version: %s\r\n\n",VERSION);
+		printf("SDN@TUM custom firmware version: %s\r\n\n",VERSION);
 		return;
 	}
 
@@ -359,16 +343,6 @@ void command_root(char *command, char *param1, char *param2, char *param3)
 				printf(" RX Dropped Packets: %" PRIu64 "\r\n", phys10_port_stats[i].rx_dropped);
 				printf(" TX Dropped Packets: %" PRIu64 "\r\n", phys10_port_stats[i].tx_dropped);
 				printf(" RX CRC Errors: %" PRIu64 "\r\n", phys10_port_stats[i].rx_crc_err);
-			}
-			if( OF_Version == 4)
-			{
-				printf(" RX Bytes: %" PRIu64 "\r\n", phys13_port_stats[i].rx_bytes);
-				printf(" TX Bytes: %" PRIu64 "\r\n", phys13_port_stats[i].tx_bytes);
-				if (Zodiac_Config.of_port[i] == 1 || i > 3) printf(" RX Packets: %" PRIu64 "\r\n", phys13_port_stats[i].rx_packets);
-				if (Zodiac_Config.of_port[i] == 1 || i > 3) printf(" TX Packets: %" PRIu64 "\r\n", phys13_port_stats[i].tx_packets);
-				printf(" RX Dropped Packets: %" PRIu64 "\r\n", phys13_port_stats[i].rx_dropped);
-				printf(" TX Dropped Packets: %" PRIu64 "\r\n", phys13_port_stats[i].tx_dropped);
-				printf(" RX CRC Errors: %" PRIu64 "\r\n", phys13_port_stats[i].rx_crc_err);
 			}
 
 		}
@@ -450,7 +424,7 @@ void command_root(char *command, char *param1, char *param2, char *param3)
 		reset_config.ethtype_filter = 0;		// Ethertype Filter Disabled
 
 		// Force OpenFlow version
-		reset_config.of_version = 0;			// Force version disabled
+		reset_config.of_version = 1;			// Force version disabled
 		
 		//How often to retrieve stats from switch
 		reset_config.stats_interval = 1;		// Default 1 second
@@ -982,11 +956,8 @@ void command_config(char *command, char *param1, char *param2, char *param3)
 			} else if (tmp_version == 1){
 				printf("Force OpenFlow version set to 1.0 (0x01)\r\n");
 				Zodiac_Config.of_version = 1;
-			} else if (tmp_version == 4){
-				printf("Force OpenFlow version set to 1.3 (0x04)\r\n");
-				Zodiac_Config.of_version = 4;
 			} else {
-				printf("Invalid OpenFlow version, valid options are 0, 1 or 4\r\n");
+				printf("Invalid OpenFlow version, valid options are 0 or 1\r\n");
 				Zodiac_Config.of_version = 0;
 		}
 		return;
@@ -1111,12 +1082,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 							if (ntohs(action_out->port) == OFPP_ALL) printf("   Output: ALL\r\n");
 							if (ntohs(action_out->port) == OFPP_CONTROLLER) printf("   Output: CONTROLLER\r\n");
 						}
-						if(act_hdr->len != 0 && ntohs(act_hdr->type) == OFPAT10_SET_VLAN_VID) //
-						{
-							struct ofp_action_vlan_vid *action_vlanid = act_hdr;
-							printf("  Action %d:\r\n",q+1);
-							printf("   Set VLAN ID: %d\r\n", ntohs(action_vlanid->vlan_vid));
-						}
 
 						if(act_hdr->len != 0 && ntohs(act_hdr->type) == OFPAT10_SET_DL_DST) //
 						{
@@ -1135,424 +1100,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 							printf("  Action %d:\r\n",q+1);
 							printf("   Strip VLAN tag\r\n");
 						}
-					}
-				}
-				printf("\r\n-------------------------------------------------------------------------\r\n\n");
-			}
-			// OpenFlow v1.3 (0x04) Flow Table
-			if( OF_Version == 4)
-			{
-				int match_size;
-				int inst_size;
-				int act_size;
-				struct ofp13_instruction_actions *inst_actions;
-				struct oxm_header13 oxm_header;
-				uint8_t oxm_value8;
-				uint16_t oxm_value16;
-				uint32_t oxm_value32;
-				uint8_t oxm_eth[6];
-				uint8_t oxm_ipv4[4];
-				uint16_t oxm_ipv6[8];
-
-				printf("\r\n-------------------------------------------------------------------------\r\n");
-				for (i=0;i<iLastFlow;i++)
-				{
-					printf("\r\nFlow %d\r\n",i+1);
-					printf(" Match:\r\n");
-					match_size = 0;
-
-					while (match_size < (ntohs(flow_match13[i]->match.length)-4))
-					{
-						memcpy(&oxm_header, ofp13_oxm_match[i] + match_size,4);
-						bool has_mask = oxm_header.oxm_field & 1;
-						oxm_header.oxm_field = oxm_header.oxm_field >> 1;
-						switch(oxm_header.oxm_field)
-						{
-							case OFPXMT_OFB_IN_PORT:
-							memcpy(&oxm_value32, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 4);
-							printf("  In Port: %d\r\n",ntohl(oxm_value32));
-							break;
-
-							case OFPXMT_OFB_ETH_DST:
-							memcpy(&oxm_eth, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 6);
-							printf("  Destination MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-							break;
-
-							case OFPXMT_OFB_ETH_SRC:
-							memcpy(&oxm_eth, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 6);
-							printf("  Source MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-							break;
-
-							case OFPXMT_OFB_ETH_TYPE:
-							memcpy(&oxm_value16, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 2);
-							if (ntohs(oxm_value16) == 0x0806)printf("  ETH Type: ARP\r\n");
-							else if (ntohs(oxm_value16) == 0x0800)printf("  ETH Type: IPv4\r\n");
-							else if (ntohs(oxm_value16) == 0x86dd)printf("  ETH Type: IPv6\r\n");
-							else if (ntohs(oxm_value16) == 0x8100)printf("  ETH Type: VLAN\r\n");
-							else if (ntohs(oxm_value16) == 0x888e)printf("  ETH Type: EAPOL\r\n");
-							else if (ntohs(oxm_value16) == 0x88cc)printf("  ETH Type: LLDP\r\n");
-							else if (ntohs(oxm_value16) == 0x8999)printf("  ETH Type: BDDP\r\n");
-							else if (ntohs(oxm_value16) == 0x9100)printf("  ETH Type: VLAN(D)\r\n");
-							else if (ntohs(oxm_value16) == 0x8847)printf("  ETH Type: MPLS (Unicast)\r\n");
-							else if (ntohs(oxm_value16) == 0x8848)printf("  ETH Type: MPLS (Multicast)\r\n");
-							else printf("  ETH Type: 0x%X\r\n",ntohs(oxm_value16));
-							break;
-
-							case OFPXMT_OFB_IP_PROTO:
-							memcpy(&oxm_value8, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 1);
-							if (oxm_value8 == 1)printf("  IP Protocol: ICMP\r\n");
-							if (oxm_value8 == 6)printf("  IP Protocol: TCP\r\n");
-							if (oxm_value8 == 17)printf("  IP Protocol: UDP\r\n");
-							break;
-
-							case OFPXMT_OFB_IPV4_SRC:
-							if (has_mask)
-							{
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 8);
-								printf("  Source IP:  %d.%d.%d.%d / %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3], oxm_ipv4[4], oxm_ipv4[5], oxm_ipv4[6], oxm_ipv4[7]);
-								} else {
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 4);
-								printf("  Source IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-							}
-							break;
-
-							case OFPXMT_OFB_IPV4_DST:
-							if (has_mask)
-							{
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 8);
-								printf("  Destination IP:  %d.%d.%d.%d / %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3], oxm_ipv4[4], oxm_ipv4[5], oxm_ipv4[6], oxm_ipv4[7]);
-							} else {
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 4);
-								printf("  Destination IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-							}
-							break;
-
-							case OFPXMT_OFB_IPV6_SRC:
-							memcpy(&oxm_ipv6, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 16);
-							printf("  Source IP: %.4X:%.4X:%.4X:%.4X:%.4X:%.4X:%.4X:%.4X\r\n", oxm_ipv6[0], oxm_ipv6[1], oxm_ipv6[2], oxm_ipv6[3], oxm_ipv6[4], oxm_ipv6[5], oxm_ipv6[6], oxm_ipv6[7]);
-							break;
-
-							case OFPXMT_OFB_IPV6_DST:
-							memcpy(&oxm_ipv6, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 16);
-							printf("  Destination IP:  %.4X:%.4X:%.4X:%.4X:%.4X:%.4X:%.4X:%.4X\r\n", oxm_ipv6[0], oxm_ipv6[1], oxm_ipv6[2], oxm_ipv6[3], oxm_ipv6[4], oxm_ipv6[5], oxm_ipv6[6], oxm_ipv6[7]);
-							break;
-
-							case OFPXMT_OFB_TCP_SRC:
-							memcpy(&oxm_value16, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 2);
-							printf("  Source TCP Port: %d\r\n",ntohs(oxm_value16));
-							break;
-
-							case OFPXMT_OFB_TCP_DST:
-							memcpy(&oxm_value16, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 2);
-							printf("  Destination TCP Port: %d\r\n",ntohs(oxm_value16));
-							break;
-
-							case OFPXMT_OFB_UDP_SRC:
-							memcpy(&oxm_value16, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 2);
-							printf("  Source UDP Port: %d\r\n",ntohs(oxm_value16));
-							break;
-
-							case OFPXMT_OFB_UDP_DST:
-							memcpy(&oxm_value16, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 2);
-							printf("  Destination UDP Port: %d\r\n",ntohs(oxm_value16));
-							break;
-
-							case OFPXMT_OFB_VLAN_VID:
-							memcpy(&oxm_value16, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 2);
-							if (oxm_value16 != 0) printf("  VLAN ID: %d\r\n",(ntohs(oxm_value16) - OFPVID_PRESENT));
-							break;
-
-							case OFPXMT_OFB_MPLS_LABEL:
-							memcpy(&oxm_value32, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 4);
-							if (oxm_value32 != 0) printf("  MPLS Label: %d\r\n",(ntohl(oxm_value32)));
-							break;
-
-							case OFPXMT_OFB_MPLS_TC:
-							memcpy(&oxm_value8, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 1);
-							if (oxm_value8 != 0) printf("  MPLS TC: %d\r\n",(oxm_value8));
-							break;
-							
-							case OFPXMT_OFB_MPLS_BOS:
-							memcpy(&oxm_value8, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 1);
-							if (oxm_value8 != 0) printf("  MPLS BoS: %d\r\n",(oxm_value8));
-							break;
-										
-							case OFPXMT_OFB_ARP_OP:
-							memcpy(&oxm_value16, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 2);
-							if (oxm_value16 == 1) printf("  ARP OP Code: Request (%d)\r\n",ntohs(oxm_value16));
-							if (oxm_value16 == 2) printf("  ARP OP Code: Reply (%d)\r\n",ntohs(oxm_value16));
-							break;
-
-							case OFPXMT_OFB_ARP_SPA:
-							if (has_mask)
-							{
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 8);
-								printf("  Source IP:  %d.%d.%d.%d / %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3], oxm_ipv4[4], oxm_ipv4[5], oxm_ipv4[6], oxm_ipv4[7]);
-								} else {
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 4);
-								printf("  Source IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-							}
-							break;
-
-							case OFPXMT_OFB_ARP_TPA:
-							if (has_mask)
-							{
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 8);
-								printf("  Target IP:  %d.%d.%d.%d / %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3], oxm_ipv4[4], oxm_ipv4[5], oxm_ipv4[6], oxm_ipv4[7]);
-								} else {
-								memcpy(&oxm_ipv4, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 4);
-								printf("  Target IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-							}
-							break;
-
-							case OFPXMT_OFB_ARP_SHA:
-							memcpy(&oxm_eth, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 6);
-							printf("  Source MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-							break;
-
-							case OFPXMT_OFB_ARP_THA:
-							memcpy(&oxm_eth, ofp13_oxm_match[i] + sizeof(struct oxm_header13) + match_size, 6);
-							printf("  Target MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-							break;
-
-
-
-						};
-						match_size += (oxm_header.oxm_len + sizeof(struct oxm_header13));
-					}
-					printf("\r Attributes:\r\n");
-					printf("  Table ID: %d\t\t\t\tCookie:0x%" PRIx64 "\r\n",flow_match13[i]->table_id, htonll(flow_match13[i]->cookie));
-					printf("  Priority: %d\t\t\t\tDuration: %d secs\r\n",ntohs(flow_match13[i]->priority), (totaltime/2) - flow_counters[i].duration);
-					printf("  Hard Timeout: %d secs\t\t\tIdle Timeout: %d secs\r\n",ntohs(flow_match13[i]->hard_timeout), ntohs(flow_match13[i]->idle_timeout));
-					printf("  Byte Count: %d\t\t\tPacket Count: %d\r\n",flow_counters[i].bytes, flow_counters[i].hitCount);
-					int lm = (totaltime/2) - flow_counters[i].lastmatch;
-					int hr = lm/3600;
-					int t = lm%3600;
-					int min = t/60;
-					int sec = t%60;
-					printf("  Last Match: %02d:%02d:%02d\r\n", hr, min, sec);
-					
-					// Print instruction list
-					if (ofp13_oxm_inst[i] != NULL)
-					{
-						// Get a list of all instructions for this flow
-						void *insts[8] = {0};
-						inst_size = 0;
-						while(inst_size < ofp13_oxm_inst_size[i]){
-							struct ofp13_instruction *inst_ptr = (struct ofp13_instruction *)(ofp13_oxm_inst[i] + inst_size);
-							insts[ntohs(inst_ptr->type)] = inst_ptr;
-							inst_size += ntohs(inst_ptr->len);
-						}
-						
-						printf("\r Instructions:\r\n");
-						
-						// Check for optional metering instruction
-						if(insts[OFPIT13_METER] != NULL)						
-						{
-							struct ofp13_instruction_meter *inst_meter = insts[OFPIT13_METER];
-							printf("  Meter: %d\r\n", ntohl(inst_meter->meter_id));
-						}
-						
-						if(insts[OFPIT13_APPLY_ACTIONS] != NULL)
-						{
-							printf("  Apply Actions:\r\n");
-							struct ofp13_action_header *act_hdr;
-							act_size = 0;
-							inst_actions = insts[OFPIT13_APPLY_ACTIONS];
-							if (ntohs(inst_actions->len) == sizeof(struct ofp13_instruction_actions)) printf("   DROP \r\n");	// No actions
-							while (act_size < (ntohs(inst_actions->len) - sizeof(struct ofp13_instruction_actions)))
-							{
-								act_hdr = (struct ofp13_action_header*)((uintptr_t)inst_actions->actions + act_size);
-								if (htons(act_hdr->type) == OFPAT13_OUTPUT)
-								{
-									struct ofp13_action_output *act_output = act_hdr;
-									if (htonl(act_output->port) < OFPP13_MAX)
-									{
-										printf("   Output Port: %d\r\n", htonl(act_output->port));
-									} else if (htonl(act_output->port) == OFPP13_IN_PORT)
-									{
-										printf("   Output: IN_PORT \r\n");
-									} else if (htonl(act_output->port) == OFPP13_FLOOD)
-									{
-										printf("   Output: FLOOD \r\n");
-									} else if (htonl(act_output->port) == OFPP13_ALL)
-									{
-										printf("   Output: ALL \r\n");
-									} else if (htonl(act_output->port) == OFPP13_CONTROLLER)
-									{
-										printf("   Output: CONTROLLER \r\n");
-									}
-									act_output = NULL;
-								}
-
-								if (htons(act_hdr->type) == OFPAT13_SET_FIELD)
-								{
-									struct ofp13_action_set_field *act_set_field = act_hdr;
-									memcpy(&oxm_header, act_set_field->field,4);
-									oxm_header.oxm_field = oxm_header.oxm_field >> 1;
-									switch(oxm_header.oxm_field)
-									{
-										case OFPXMT_OFB_VLAN_VID:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										printf("   Set VLAN ID: %d\r\n",(ntohs(oxm_value16) - OFPVID_PRESENT));
-										break;
-
-										case OFPXMT_OFB_ETH_SRC:
-										memcpy(&oxm_eth, act_set_field->field + sizeof(struct oxm_header13), 6);
-										printf("   Set Source MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-										break;
-
-										case OFPXMT_OFB_ETH_DST:
-										memcpy(&oxm_eth, act_set_field->field + sizeof(struct oxm_header13), 6);
-										printf("   Set Destination MAC: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-										break;
-
-										case OFPXMT_OFB_ETH_TYPE:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										if (ntohs(oxm_value16) == 0x0806 )printf("   Set ETH Type: ARP\r\n");
-										else if (ntohs(oxm_value16) == 0x0800)printf("   Set ETH Type: IPv4\r\n");
-										else if (ntohs(oxm_value16) == 0x86dd)printf("   Set ETH Type: IPv6\r\n");
-										else if (ntohs(oxm_value16) == 0x8100)printf("   Set ETH Type: VLAN\r\n");
-										else if (ntohs(oxm_value16) == 0x888e)printf("   Set ETH Type: EAPOL\r\n");
-										else if (ntohs(oxm_value16) == 0x88cc)printf("   Set ETH Type: LLDP\r\n");
-										else if (ntohs(oxm_value16) == 0x8999)printf("   Set ETH Type: BDDP\r\n");
-										else if (ntohs(oxm_value16) == 0x9100)printf("   Set ETH Type: VLAN(D)\r\n");
-										else if (ntohs(oxm_value16) == 0x8847)printf("   Set ETH Type: MPLS (Unicast)\r\n");
-										else if (ntohs(oxm_value16) == 0x8848)printf("   Set ETH Type: MPLS (Multicast)\r\n");
-										else printf("   Set ETH Type: VLAN\r\n",ntohs(oxm_value16));
-										break;
-
-										case OFPXMT_OFB_IPV4_SRC:
-										memcpy(&oxm_ipv4, act_set_field->field + sizeof(struct oxm_header13), 4);
-										printf("   Set Source IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-										break;
-
-										case OFPXMT_OFB_IP_PROTO:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										if (oxm_value16 == 1)printf("   Set IP Protocol: ICMP\r\n");
-										if (oxm_value16 == 6)printf("   Set IP Protocol: TCP\r\n");
-										if (oxm_value16 == 17)printf("   Set IP Protocol: UDP\r\n");
-										break;
-
-										case OFPXMT_OFB_IPV4_DST:
-										memcpy(&oxm_ipv4, act_set_field->field + sizeof(struct oxm_header13), 4);
-										printf("   Set Destination IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-										break;
-
-										case OFPXMT_OFB_TCP_SRC:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										printf("   Set TCP Source Port:  %d\r\n", ntohs(oxm_value16));
-										break;
-
-										case OFPXMT_OFB_TCP_DST:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										printf("   Set TCP Destination Port:  %d\r\n", ntohs(oxm_value16));
-										break;
-
-										case OFPXMT_OFB_UDP_SRC:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										printf("   Set UDP Source Port:  %d\r\n", ntohs(oxm_value16));
-										break;
-
-										case OFPXMT_OFB_UDP_DST:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										printf("   Set UDP Destination Port:  %d\r\n", ntohs(oxm_value16));
-										break;
-
-										case OFPXMT_OFB_ICMPV4_TYPE:
-										memcpy(&oxm_value8, act_set_field->field + sizeof(struct oxm_header13), 1);
-										printf("   Set ICMP Type:  %d\r\n", oxm_value8);
-										break;
-
-										case OFPXMT_OFB_ICMPV4_CODE:
-										memcpy(&oxm_value8, act_set_field->field + sizeof(struct oxm_header13), 1);
-										printf("   Set ICMP Code:  %d\r\n", oxm_value8);
-										break;
-
-										case OFPXMT_OFB_ARP_OP:
-										memcpy(&oxm_value16, act_set_field->field + sizeof(struct oxm_header13), 2);
-										printf("   Set ARP OP Code:  %d\r\n", ntohs(oxm_value16));
-										break;
-
-										case OFPXMT_OFB_ARP_SPA:
-										memcpy(&oxm_ipv4, act_set_field->field + sizeof(struct oxm_header13), 4);
-										printf("   Set ARP Source IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-										break;
-
-										case OFPXMT_OFB_ARP_TPA:
-										memcpy(&oxm_ipv4, act_set_field->field + sizeof(struct oxm_header13), 4);
-										printf("   Set ARP Target IP:  %d.%d.%d.%d\r\n", oxm_ipv4[0], oxm_ipv4[1], oxm_ipv4[2], oxm_ipv4[3]);
-										break;
-
-										case OFPXMT_OFB_ARP_SHA:
-										memcpy(&oxm_eth, act_set_field->field + sizeof(struct oxm_header13), 6);
-										printf("   Set ARP Source HA: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-										break;
-
-										case OFPXMT_OFB_ARP_THA:
-										memcpy(&oxm_eth, act_set_field->field + sizeof(struct oxm_header13), 6);
-										printf("   Set ARP Target HA: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X\r\n", oxm_eth[0], oxm_eth[1], oxm_eth[2], oxm_eth[3], oxm_eth[4], oxm_eth[5]);
-										break;
-										
-										case OFPXMT_OFB_MPLS_LABEL:
-										memcpy(&oxm_value32, act_set_field->field + sizeof(struct oxm_header13), 4);
-										printf("   Set MPLS Label: %d\r\n",ntohl(oxm_value32));
-										break;
-										
-										case OFPXMT_OFB_MPLS_TC:
-										memcpy(&oxm_value8, act_set_field->field + sizeof(struct oxm_header13), 1);
-										printf("   Set MPLS TC: %d\r\n",ntohs(oxm_value8));
-										break;
-										
-										case OFPXMT_OFB_MPLS_BOS:
-										memcpy(&oxm_value8, act_set_field->field + sizeof(struct oxm_header13), 1);
-										printf("   Set MPLS BoS: %d\r\n",ntohs(oxm_value8));
-										break;
-
-									};
-								}
-
-								if (htons(act_hdr->type) == OFPAT13_PUSH_VLAN)
-								{
-									struct ofp13_action_push *act_push = act_hdr;
-									printf("   Push VLAN tag\r\n");
-								}
-
-								if (htons(act_hdr->type) == OFPAT13_POP_VLAN)
-								{
-									printf("   Pop VLAN tag\r\n");
-								}
-								
-								if (htons(act_hdr->type) == OFPAT13_PUSH_MPLS)
-								{
-									struct ofp13_action_push *act_push = act_hdr;
-									printf("   Push MPLS tag\r\n");
-								}
-
-								if (htons(act_hdr->type) == OFPAT13_POP_MPLS)
-								{
-									printf("   Pop MPLS tag\r\n");
-								}
-
-								if (htons(act_hdr->type) == OFPAT13_GROUP)
-								{
-									struct ofp13_action_group *act_group = act_hdr;
-									printf("   Apply Group: %d\r\n", htonl(act_group->group_id));
-								}
-								act_size += htons(act_hdr->len);
-							}
-						}
-						// Print goto table instruction
-						if(insts[OFPIT13_GOTO_TABLE] != NULL)
-						{
-							struct ofp13_instruction_goto_table *inst_goto_ptr;
-							inst_goto_ptr = (struct ofp13_instruction_goto_table *) insts[OFPIT13_GOTO_TABLE];
-							printf("  Goto Table: %d\r\n", inst_goto_ptr->table_id);
-						}
-					} else {
-						// No instructions
-						printf("\r Instructions:\r\n");
-						printf("   DROP \r\n");
 					}
 				}
 				printf("\r\n-------------------------------------------------------------------------\r\n\n");
@@ -1580,33 +1127,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 			} else printf("No Flows.\r\n");
 			printf("-------------------------------------------------------------------------\r\n");
 		}
-
-		if( OF_Version == 4)
-		{
-			int flow_count;
-			printf("\r\n-------------------------------------------------------------------------\r\n");
-			for (int x=0;x<MAX_TABLES;x++)
-			{
-				flow_count = 0;
-				for (int i=0;i<iLastFlow;i++)
-				{
-					if(flow_match13[i]->table_id == x)
-					{
-						flow_count++;
-					}
-				}
-				if(flow_count > 0)
-				{
-					printf("Table: %d\r\n",x);
-					printf(" Flows: %d\r\n",flow_count);
-					printf(" Lookups: %d\r\n",table_counters[x].lookup_count);
-					printf(" Matches: %d\r\n",table_counters[x].matched_count);
-					printf(" Bytes: %d\r\n",table_counters[x].byte_count);
-					printf("\r\n");
-				}
-			}
-			printf("-------------------------------------------------------------------------\r\n");
-		}
 		return;
 	}
 
@@ -1625,36 +1145,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 			printf(" No flows: %d\r\n", iLastFlow);
 			printf(" Total Lookups: %d\r\n",table_counters[0].lookup_count);
 			printf(" Total Matches: %d\r\n",table_counters[0].matched_count);
-		}
-		if (OF_Version == 4)
-		{
-			int flow_count;
-			int tables = 0;
-			for (int x=0;x<MAX_TABLES;x++)
-			{
-				flow_count = 0;
-				for (int i=0;i<iLastFlow;i++)
-				{
-					if(flow_match13[i]->table_id == x)
-					{
-						flow_count++;
-					}
-				}
-				if(flow_count > 0) tables++;
-			}
-			printf(" Version: 1.3 (0x04)\r\n");
-			printf(" No tables: %d\r\n", tables);
-			printf(" No flows: %d\r\n", iLastFlow);
-			// Total up all the table stats
-			int lookup_count = 0;
-			int matched_count = 0;
-			for (int x=0;x<MAX_TABLES;x++)
-			{
-				lookup_count += table_counters[x].lookup_count;
-				matched_count += table_counters[x].matched_count;
-			}
-			printf(" Total Lookups: %d\r\n",lookup_count);
-			printf(" Total Matches: %d\r\n",matched_count);
 		}
 		printf("\r\n-------------------------------------------------------------------------\r\n");
 		return;
@@ -1687,154 +1177,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 		return;
 	}
 	
-	// Show meter table entries
-	if (strcmp(command, "show") == 0 && strcmp(param1, "meters") == 0)
-	{
-		int meter_out_counter = 1;
-		
-		// Check that table is populated
-		if(meter_entry[0] != NULL)
-		{
-			int meter_index = 0;
-			while(meter_entry[meter_index] != NULL && meter_index < MAX_METER_13)
-			{
-					printf("\r\n-------------------------------------------------------------------------\r\n");
-					printf("\r\nMeter %d\r\n", meter_out_counter);
-					meter_out_counter++;
-					printf("  Meter ID: %d\r\n", meter_entry[meter_index]->meter_id);
-					printf("  Counters:\r\n");
-					meter_entry[meter_index]->flow_count = get_bound_flows(meter_entry[meter_index]->meter_id);
-					printf("\tBound Flows:\t%d\tDuration:\t%d sec\r\n", meter_entry[meter_index]->flow_count, (sys_get_ms()-meter_entry[meter_index]->time_added)/1000);
-					printf("\tByte Count:\t%"PRIu64"\tPacket Count:\t%"PRIu64"\r\n", meter_entry[meter_index]->byte_in_count, meter_entry[meter_index]->packet_in_count);
-					printf("\tConfiguration:\t");
-					if(((meter_entry[meter_index]->flags) & OFPMF13_KBPS) == OFPMF13_KBPS)
-					{
-						printf("KBPS; ");
-					}
-					if(((meter_entry[meter_index]->flags) & OFPMF13_PKTPS) == OFPMF13_PKTPS)
-					{
-						printf("PKTPS; ");
-					}
-					if(((meter_entry[meter_index]->flags) & OFPMF13_BURST) == OFPMF13_BURST)
-					{
-						printf("BURST; ");
-					}
-					if(((meter_entry[meter_index]->flags) & OFPMF13_STATS) == OFPMF13_STATS)
-					{
-						printf("STATS; ");
-					}
-					if(meter_entry[meter_index]->flags == 0)
-					{
-						printf(" NONE;");
-					}
-					
-					printf("\r\n\tNumber of bands:\t%d\r\n", meter_entry[meter_index]->band_count);
-					int bands_processed = 0;
-					struct ofp13_meter_band_drop * ptr_band;
-					ptr_band = &(meter_entry[meter_index]->bands);
-					while(bands_processed < meter_entry[meter_index]->band_count)
-					{
-						printf("\t\tBand %d:\r\n", bands_processed+1);
-						printf("\t\t  Type:\t\t");
-						if(ptr_band->type == OFPMBT13_DROP)
-						{
-							printf("DROP\r\n");
-						}
-						else if(ptr_band->type == OFPMBT13_DSCP_REMARK)
-						{
-							printf("DSCP REMARK\r\n");
-						}
-						else
-						{
-							printf("unsupported type\r\n");
-						}
-						printf("\t\t  Rate:\t\t%d\t\r\n", ptr_band->rate);
-						printf("\t\t  Burst Size:\t%d\t\r\n", ptr_band->burst_size);
-						
-						if(ptr_band->type == OFPMBT13_DSCP_REMARK)
-						{
-							printf("\t\t  Precedence:\t+%d\t\r\n", ((struct ofp13_meter_band_dscp_remark*)ptr_band)->prec_level);
-						}
-						
-						// Find band index
-						int band_index = ((uint8_t*)ptr_band - (uint8_t*)&(meter_entry[meter_index]->bands)) / sizeof(struct ofp13_meter_band_drop);
-						
-						// Display counters
-						printf("\t\t  Byte count:\t%"PRIu64"\t\r\n", band_stats_array[meter_index].band_stats[band_index].byte_band_count);
-						printf("\t\t  Packet count:\t%"PRIu64"\t\r\n", band_stats_array[meter_index].band_stats[band_index].packet_band_count);
-						
-						ptr_band++;	// Move to next band
-						bands_processed++;
-					}
-				meter_index++;
-			}
-			printf("\r\n-------------------------------------------------------------------------\r\n\r\n");
-		}
-		else
-		{
-			printf("No meters configured.\r\n");
-		}
-		return;
-	}
-
-	// Show meter table entries
-	if (strcmp(command, "show") == 0 && strcmp(param1, "groups") == 0)
-	{
-		int g;
-		bool no_groups = true;
-	
-		// Find first empty group entry
-		for(g=0;g<MAX_GROUPS;g++)
-		{
-			if (group_entry13[g].active == true)
-			{
-				no_groups = false;
-				printf("\r\nGroup ID %d\r\n", g+1);
-				if (group_entry13[g].type == OFPGT13_ALL) printf("  Type: ALL\r\n");
-				if (group_entry13[g].type == OFPGT13_SELECT) printf("  Type: SELECT\r\n");
-				if (group_entry13[g].type == OFPGT13_INDIRECT) printf("  Type: INDIRECT\r\n");
-				if (group_entry13[g].type == OFPGT13_FF) printf("  Type: FAST FAILOVER\r\n");
-				printf("  Actions:\r\n");
-			
-				struct ofp13_bucket *bucket_hdr;
-				bucket_hdr = (struct ofp13_bucket *)action_bucket[group_entry13[g].bucket_id-1].data;
-				struct ofp13_action_header *act_hdr;
-				uint8_t act_size = sizeof(struct ofp13_bucket);
-				if (htons(bucket_hdr->len == sizeof(struct ofp13_bucket))) printf("   DROP \r\n");	// No actions
-			
-				while (act_size < htons(bucket_hdr->len))
-				{
-					act_hdr = (struct ofp13_action_header*)((uintptr_t)bucket_hdr + act_size);
-					if (htons(act_hdr->type) == OFPAT13_OUTPUT)
-					{
-						struct ofp13_action_output *act_output = act_hdr;
-						if (htonl(act_output->port) < OFPP13_MAX)
-						{
-							printf("   Output Port: %d\r\n", htonl(act_output->port));
-						} else if (htonl(act_output->port) == OFPP13_IN_PORT)
-						{
-							printf("   Output: IN_PORT \r\n");
-						} else if (htonl(act_output->port) == OFPP13_FLOOD)
-						{
-							printf("   Output: FLOOD \r\n");
-						} else if (htonl(act_output->port) == OFPP13_ALL)
-						{
-							printf("   Output: ALL \r\n");
-						} else if (htonl(act_output->port) == OFPP13_CONTROLLER)
-						{
-							printf("   Output: CONTROLLER \r\n");
-						} else if (htonl(act_output->port) == OFPP13_NORMAL)
-						{
-							printf("   Output: NORMAL \r\n");
-						}
-					}
-					act_size += htons(act_hdr->len);
-				}
-			}
-		}
-		if (no_groups == true) printf("No groups configured.\r\n");
-		return;
-	}
 	// Unknown Command
 	printf("Unknown command\r\n");
 	return;
@@ -1911,6 +1253,8 @@ void printintro(void)
 	printf(" / /__/ /_/ / /_/ / / /_/ / /__   / __/  /   |  \r\n");
 	printf("/____/\\____/\\__,_/_/\\__,_/\\___/  /_/    /_/|_| \r\n");
 	printf("\t    by Northbound Networks\r\n");
+	printf("\t    modified by Markus Moskopp <m.moskopp@tum.de>\r\n");
+	printf("\t    for Software Defined Networking @TUM\r\n");
 	printf("\r\n\n");
 	printf("Type 'help' for a list of available commands\r\n");
 	return;
@@ -1966,8 +1310,6 @@ void printhelp(void)
 	printf(" show status\r\n");
 	printf(" show tables\r\n");
 	printf(" show flows\r\n");
-	printf(" show meters\r\n");
-	printf(" show groups\r\n");
 	printf(" enable\r\n");
 	printf(" disable\r\n");
 	printf(" clear flows\r\n");

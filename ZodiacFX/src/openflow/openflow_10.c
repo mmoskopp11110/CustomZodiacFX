@@ -46,9 +46,9 @@ extern int totaltime;
 extern struct tcp_pcb *tcp_pcb;
 extern int iLastFlow;
 extern struct ofp_flow_mod *flow_match10[MAX_FLOWS_10];
-extern struct flows_counter flow_counters[MAX_FLOWS_13];
 extern struct flow_tbl_actions *flow_actions10[MAX_FLOWS_10];
 extern struct table_counter table_counters[MAX_TABLES];
+extern struct flows_counter flow_counters[MAX_FLOWS_13];
 extern int OF_Version;
 extern bool rcv_freq;
 extern uint8_t NativePortMatrix;
@@ -245,7 +245,7 @@ void nnOF10_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port)
 							set_ip_checksum(p_uc_data, packet_size, 14);
 						}
 						break;
-
+						/* MM do not support VLAN matching
 						case OFPAT10_SET_VLAN_VID:
 						action_vlanid  = act_hdr;
 						if (eth_prot == vlantag)
@@ -303,7 +303,7 @@ void nnOF10_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port)
 							packet_size -= 4;
 							memcpy(ul_size, &packet_size, 2);
 						}
-						break;
+						break;*/
 
 						case OFPAT10_SET_TP_DST:
 						action_port = act_hdr;
@@ -380,11 +380,6 @@ void of10_message(struct ofp_header *ofph, int size, int len)
 
 			stats_port_reply(stats_req);
 		}
-
-		if ( HTONS(stats_req->type) == OFPST_VENDOR )
-		{
-			//stats_vendor(fs, stats_req);
-		}
 		break;
 
 		case OFPT10_PACKET_OUT:
@@ -443,7 +438,7 @@ void features_reply10(uint32_t xid)
 	features.n_buffers = htonl(0);		// Number of packets that can be buffered
 	features.n_tables = 1;		// Number of flow tables
 	features.capabilities = htonl(OFPC10_FLOW_STATS + OFPC10_TABLE_STATS + OFPC10_PORT_STATS);	// Switch Capabilities
-	features.actions = htonl((1 << OFPAT10_OUTPUT) + (1 << OFPAT10_SET_VLAN_VID) + (1 << OFPAT10_SET_VLAN_PCP) + (1 << OFPAT10_STRIP_VLAN) + (1 << OFPAT10_SET_DL_SRC) + (1 << OFPAT10_SET_DL_DST) + (1 << OFPAT10_SET_NW_SRC) + (1 << OFPAT10_SET_NW_DST) + (1 << OFPAT10_SET_NW_TOS) + (1 << OFPAT10_SET_TP_SRC) + (1 << OFPAT10_SET_TP_DST));		// Action Capabilities
+	features.actions = htonl((1 << OFPAT10_OUTPUT) /*+ (1 << OFPAT10_SET_VLAN_VID) + (1 << OFPAT10_SET_VLAN_PCP) + (1 << OFPAT10_STRIP_VLAN)*/ + (1 << OFPAT10_SET_DL_SRC) + (1 << OFPAT10_SET_DL_DST) + (1 << OFPAT10_SET_NW_SRC) + (1 << OFPAT10_SET_NW_DST) + (1 << OFPAT10_SET_NW_TOS) + (1 << OFPAT10_SET_TP_SRC) + (1 << OFPAT10_SET_TP_DST));		// Action Capabilities
 	uint8_t mac[] = {0x00,0x00,0x00,0x00,0x00,0x00};
 
 	memcpy(&buf, &features, sizeof(struct ofp10_switch_features));
@@ -782,7 +777,7 @@ void packet_out(struct ofp_header *msg)
 		return;
 	}
 
-	if (outPort == OFPP_FLOOD || outPort == OFPP13_ALL)
+	if (outPort == OFPP_FLOOD)
 	{
 		outPort = (15 - NativePortMatrix) - (1<<(inPort-1));
 	} else
@@ -924,12 +919,12 @@ void flow_add(struct ofp_header *msg)
 					}
 				}
 				// If set VLAD ID field is 0 change to a STRIP_VLAN action
-				if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
+				/*if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
 				{
 					struct ofp_action_vlan_vid * action_vlan;
 					action_vlan = action_hdr1;
 					if(action_vlan->vlan_vid == 0) action_hdr1->type = htons(OFPAT10_STRIP_VLAN);
-				}
+				}*/
 
 				// Copy action
 				if(q == 0) memcpy(flow_actions10[iLastFlow]->action1, action_hdr1, ntohs(action_hdr1->len));
@@ -998,12 +993,12 @@ void flow_modify(struct ofp_header *msg)
 								}
 							}
 							// If set VLAD ID field is 0 change to a STRIP_VLAN action
-							if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
+							/*if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
 							{
 								struct ofp_action_vlan_vid * action_vlan;
 								action_vlan = action_hdr1;
 								if(action_vlan->vlan_vid == 0) action_hdr1->type = htons(OFPAT10_STRIP_VLAN);
-							}
+							}*/
 
 							// Copy actions
 							if(j == 0) memcpy(flow_actions10[q]->action1, action_hdr1, ntohs(action_hdr1->len));
@@ -1075,12 +1070,12 @@ void flow_modify_strict(struct ofp_header *msg)
 								}
 							}
 							// If set VLAD ID field is 0 change to a STRIP_VLAN action
-							if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
+							/*if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
 							{
 								struct ofp_action_vlan_vid * action_vlan;
 								action_vlan = action_hdr1;
 								if(action_vlan->vlan_vid == 0) action_hdr1->type = htons(OFPAT10_STRIP_VLAN);
-							}
+							}*/
 
 							// Copy actions
 							if(j == 0) memcpy(flow_actions10[q]->action1, action_hdr1, ntohs(action_hdr1->len));

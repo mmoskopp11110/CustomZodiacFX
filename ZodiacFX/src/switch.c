@@ -53,7 +53,6 @@ extern uint8_t shared_buffer[SHARED_BUFFER_LEN];
 gmac_device_t gs_gmac_dev;
 uint8_t gmacbuffer[GMAC_FRAME_LENTGH_MAX];
 struct ofp10_port_stats phys10_port_stats[TOTAL_PORTS];
-struct ofp13_port_stats phys13_port_stats[TOTAL_PORTS];
 uint8_t port_status[TOTAL_PORTS];
 uint8_t last_port_status[TOTAL_PORTS];
 static volatile uint8_t gs_uc_eth_buffer[GMAC_FRAME_LENTGH_MAX];
@@ -185,15 +184,6 @@ void update_port_stats(void)
 		phys10_port_stats[stats_rr].rx_dropped += readrxdrop(stats_rr+1);
 		phys10_port_stats[stats_rr].rx_crc_err += readrxcrcerr(stats_rr+1);
 	}
-
-	if (OF_Version == 4)
-	{
-		phys13_port_stats[stats_rr].tx_bytes += readtxbytes(stats_rr+1);
-		phys13_port_stats[stats_rr].rx_bytes += readrxbytes(stats_rr+1);
-		phys13_port_stats[stats_rr].tx_dropped += readtxdrop(stats_rr+1);
-		phys13_port_stats[stats_rr].rx_dropped += readrxdrop(stats_rr+1);
-		phys13_port_stats[stats_rr].rx_crc_err += readrxcrcerr(stats_rr+1);
-	}
 	stats_rr++;
 	if (stats_rr == 4) stats_rr = 0;
 }
@@ -322,10 +312,6 @@ void gmac_write(uint8_t *p_buffer, uint16_t ul_size, uint8_t port)
 	if (port & 2) phys10_port_stats[1].tx_packets++;
 	if (port & 4) phys10_port_stats[2].tx_packets++;
 	if (port & 8) phys10_port_stats[3].tx_packets++;
-	if (port & 1) phys13_port_stats[0].tx_packets++;
-	if (port & 2) phys13_port_stats[1].tx_packets++;
-	if (port & 4) phys13_port_stats[2].tx_packets++;
-	if (port & 8) phys13_port_stats[3].tx_packets++;
 	
 	// Add padding
 	if (ul_size < 60)
@@ -510,7 +496,6 @@ void task_switch(struct netif *netif)
 			if (Zodiac_Config.OFEnabled == OF_ENABLED && Zodiac_Config.of_port[tag-1] == 1)
 			{
 				phys10_port_stats[tag-1].rx_packets++;
-				phys13_port_stats[tag-1].rx_packets++;
 				ul_rcv_size--; // remove the tail first
 				nnOF_tablelookup((uint8_t *) gs_uc_eth_buffer, &ul_rcv_size, tag);
 				return;

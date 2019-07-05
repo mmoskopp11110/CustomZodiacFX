@@ -44,24 +44,14 @@
 extern struct zodiac_config Zodiac_Config;
 extern uint8_t port_status[TOTAL_PORTS];
 extern struct ofp10_port_stats phys10_port_stats[TOTAL_PORTS];
-extern struct ofp13_port_stats phys13_port_stats[TOTAL_PORTS];
 
 // Local Variables
 struct ofp_switch_config Switch_config;
 struct ofp_flow_mod *flow_match10[MAX_FLOWS_10];
-struct ofp13_flow_mod *flow_match13[MAX_FLOWS_13];
-struct group_entry13 group_entry13[MAX_GROUPS];
-struct action_bucket action_bucket[MAX_BUCKETS];
-uint8_t *ofp13_oxm_match[MAX_FLOWS_13];
-uint8_t *ofp13_oxm_inst[MAX_FLOWS_13];
-uint16_t ofp13_oxm_inst_size[MAX_FLOWS_13];
-struct flows_counter flow_counters[MAX_FLOWS_13];
 struct flow_tbl_actions *flow_actions10[MAX_FLOWS_10];
+struct flows_counter flow_counters[MAX_FLOWS_13];
 struct table_counter table_counters[MAX_TABLES];
 int iLastFlow = 0;
-int iLastMeter = 0;
-struct meter_entry13 *meter_entry[MAX_METER_13];
-struct meter_band_stats_array band_stats_array[MAX_METER_13];
 uint8_t shared_buffer[SHARED_BUFFER_LEN];
 char sysbuf[64];
 struct ip_addr serverIP;
@@ -117,8 +107,7 @@ void nnOF_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port)
 
 	if (Zodiac_Config.failstate == 0 && tcp_pcb->state != ESTABLISHED) return;	// If the controller is not connected and fail secure is enabled drop the packet
 
-	if (OF_Version == 0x01) nnOF10_tablelookup(p_uc_data, ul_size, port);
-	if (OF_Version == 0x04) nnOF13_tablelookup(p_uc_data, ul_size, port);
+	nnOF10_tablelookup(p_uc_data, ul_size, port);
 	return;
 }
 
@@ -181,8 +170,6 @@ static err_t of_receive(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 					OF_Version = MAX_OFP_VERSION;
 				} else if (ofph->version == 1 && Zodiac_Config.of_version == 0) {
 					OF_Version = 0x01;
-				} else if (ofph->version == 4 && Zodiac_Config.of_version == 0) {
-					OF_Version = 0x04;
 				} else if (Zodiac_Config.of_version != 0) {
 					OF_Version = Zodiac_Config.of_version;
 				}
@@ -194,8 +181,7 @@ static err_t of_receive(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 				break;
 
 				default:
-					if (OF_Version == 0x01) of10_message(ofph, size, len);
-					if (OF_Version == 0x04) of13_message(ofph, size, len);
+					of10_message(ofph, size, len);
 			};
 
 		}
@@ -211,24 +197,6 @@ static err_t of_receive(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 }
 
 /*
-*	OpenFlow Sent callback function
-*
-*	@param *arg - pointer the additional TCP args
-*	@param *tcp_pcb - pointer the TCP session structure.
-*
-*/
-static err_t of_sent(void *arg, struct tcp_pcb *tpcb, uint16_t len)
-{
-	TRACE("openflow.c: [of_sent] %d bytes acknowledged ", len);
-	if(reply_more_flag == true)
-	{
-		multi_flow_more_reply13();
-	}
-	
-	return ERR_OK;
-}
-
-/*
 *	OpenFlow HELLO message function
 *
 */
@@ -238,13 +206,7 @@ void OF_hello(void)
 	OF_Version = 0x00;
 	rcv_freq = false;
 	// Make sure this is a valid version otherwise it won't connect
-	if (Zodiac_Config.of_version == 1){
-		ofph.version = 1;
-	} else if (Zodiac_Config.of_version == 4){
-		ofph.version = 4;
-	} else {
-		ofph.version = MAX_OFP_VERSION;
-	}
+	ofph.version = 1;
 	ofph.type = OFPT10_HELLO;
 	ofph.length = HTONS(sizeof(ofph));
 	ofph.xid = HTONL(1);
@@ -409,7 +371,7 @@ err_t TCPready(void *arg, struct tcp_pcb *tpcb, err_t err)
 	tcp_recv(tpcb, of_receive);
 	tcp_poll(tpcb, NULL, 4);
 	tcp_err(tpcb, NULL);
-	tcp_sent(tpcb, of_sent);
+	tcp_sent(tpcb, NULL);
 	if(Zodiac_Config.failstate == 0) clear_flows();		// Clear the flow if in secure mode
 	TRACE("openflow.c: Connected to controller");
 	OF_hello();
