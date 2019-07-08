@@ -88,28 +88,28 @@ class SimpleSwitch(app_manager.RyuApp):
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
-	
+
             # New Lines IP Protocol
             if eth.ethertype == ether_types.ETH_TYPE_IP:
                 ip = pkt.get_protocol(ipv4.ipv4)
                 srcip = ip.src
                 dstip = ip.dst
                 protocol = ip.proto
-            
+
                 # New Lines ICMP Protocol
                 if protocol == in_proto.IPPROTO_ICMP:
                     match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, ipv4_src=srcip, ipv4_dst=dstip, ip_proto=protocol)
-            
+
                 # New Lines TCP Protocol
                 elif protocol == in_proto.IPPROTO_TCP:
                     t = pkt.get_protocol(tcp.tcp)
                     match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, ipv4_src=srcip, ipv4_dst=dstip, ip_proto=protocol, tcp_src=t.src_port, tcp_dst=t.dst_port)
-            
-                # New Lines UDP Protocol 
+
+                # New Lines UDP Protocol
                 elif protocol == in_proto.IPPROTO_UDP:
                     u = pkt.get_protocol(udp.udp)
                     match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, ipv4_src=srcip, ipv4_dst=dstip, ip_proto=protocol, udp_src=u.src_port, udp_dst=u.dst_port)
-	#OldCode begin
+    #OldCode begin
    
           #  self.add_flow(datapath, msg.in_port, dst, src, actions)
 
@@ -117,9 +117,9 @@ class SimpleSwitch(app_manager.RyuApp):
        # if msg.buffer_id == ofproto.OFP_NO_BUFFER:
           #  data = msg.data
 
-	#old code end
-		
-		#NewLines
+    #old code end
+
+        #NewLines
 
                 # verify if we have a valid buffer_id, if yes avoid to send both
                 # flow_mod & packet_out
@@ -151,4 +151,4 @@ class SimpleSwitch(app_manager.RyuApp):
         elif reason == ofproto.OFPPR_MODIFY:
             self.logger.info("port modified %s", port_no)
         else:
-self.logger.info("Illeagal port state %s %s", port_no, reason)
+            self.logger.info("Illeagal port state %s %s", port_no, reason)
