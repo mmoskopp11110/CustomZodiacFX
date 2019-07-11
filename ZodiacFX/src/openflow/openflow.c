@@ -72,6 +72,7 @@ void echo_reply(struct ofp_header *ofph, int size, int len);
 err_t TCPready(void *arg, struct tcp_pcb *tpcb, err_t err);
 void tcp_error(void * arg, err_t err);
 static err_t of_receive(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err);
+static err_t of_sent(void *arg, struct tcp_pcb *tpcb, uint16_t len);
 
 /*
 *	Converts a 64bit value from host to network format
@@ -189,6 +190,20 @@ static err_t of_receive(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 	{
 		tcp_close(tpcb);
 	}
+	return ERR_OK;
+}
+
+/*
+*	OpenFlow Sent callback function
+*
+*	@param *arg - pointer the additional TCP args
+*	@param *tcp_pcb - pointer the TCP session structure.
+*
+*/
+static err_t of_sent(void *arg, struct tcp_pcb *tpcb, uint16_t len)
+{
+	TRACE("openflow.c: [of_sent] %d bytes acknowledged ", len);
+	
 	return ERR_OK;
 }
 
@@ -366,7 +381,7 @@ err_t TCPready(void *arg, struct tcp_pcb *tpcb, err_t err)
 	tcp_recv(tpcb, of_receive);
 	tcp_poll(tpcb, NULL, 4);
 	tcp_err(tpcb, NULL);
-	tcp_sent(tpcb, NULL);
+	tcp_sent(tpcb, of_sent);
 	if(Zodiac_Config.failstate == 0) clear_flows();		// Clear the flow if in secure mode
 	TRACE("openflow.c: Connected to controller");
 	OF_hello();
