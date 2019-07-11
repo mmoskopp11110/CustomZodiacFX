@@ -35,22 +35,6 @@
 #include "config_zodiac.h"
 #include <lwip/err.h>
 
-struct flows_counter
-{
-	uint16_t hitCount;
-	int bytes;
-	int duration;
-	uint8_t active;
-	int lastmatch;
-};
-
-struct table_counter
-{
-	int lookup_count;
-	int matched_count;
-	int byte_count;
-};
-
 struct flow_tbl_actions
 {
 	uint8_t action1[16];
@@ -77,7 +61,6 @@ void task_openflow(void);
 void nnOF_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port);
 void nnOF10_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port);
 void of10_message(struct ofp_header *ofph, int size, int len);
-void multi_flow_more_reply13(void);
 void barrier10_reply(uint32_t xid);
 void sendtcp(const void *buffer, uint16_t len, uint8_t push);
 void flowrem_notif10(int flowid, uint8_t reason);

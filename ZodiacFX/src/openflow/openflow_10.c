@@ -47,12 +47,9 @@ extern struct tcp_pcb *tcp_pcb;
 extern int iLastFlow;
 extern struct ofp_flow_mod *flow_match10[MAX_FLOWS_10];
 extern struct flow_tbl_actions *flow_actions10[MAX_FLOWS_10];
-extern struct table_counter table_counters[MAX_TABLES];
-extern struct flows_counter flow_counters[MAX_FLOWS_13];
 extern int OF_Version;
 extern bool rcv_freq;
 extern uint8_t NativePortMatrix;
-extern struct ofp10_port_stats phys10_port_stats[TOTAL_PORTS];
 extern uint8_t port_status[TOTAL_PORTS];
 extern uint8_t shared_buffer[SHARED_BUFFER_LEN];
 extern struct zodiac_config Zodiac_Config;
@@ -63,10 +60,7 @@ void packet_in(uint8_t *buffer, uint16_t ul_size, uint32_t port, uint8_t reason)
 void features_reply10(uint32_t xid);
 void set_config10(struct ofp_header * msg);
 void config_reply(uint32_t xid);
-void stats10_desc_reply(struct ofp_stats_request * req);
-void stats_flow_reply(struct ofp_stats_request * req);
-void stats_table_reply(struct ofp_stats_request * req);
-void stats_port_reply(struct ofp_stats_request * req);
+void stats10_desc_reply(struct ofp_stats_request *msg);
 void packet_out(struct ofp_header * msg);
 void flow_mod(struct ofp_header * msg);
 void vendor_reply(uint32_t xid);
@@ -76,6 +70,7 @@ void flow_modify_strict(struct ofp_header * msg);
 void flow_delete(struct ofp_header * msg);
 void flow_delete_strict(struct ofp_header * msg);
 void of10_error(struct ofp_header *msg, uint16_t type, uint16_t code);
+void port_status_message10(uint8_t port);
 
 /*
 *	Converts a 64bit value from host to network format
@@ -123,8 +118,6 @@ void nnOF10_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port)
 	uint16_t vlantag = htons(0x8100);
 	int outport = 0;
 
-	table_counters[0].lookup_count++;
-
 	if (Zodiac_Config.OFEnabled == OF_ENABLED && iLastFlow == 0) // Check to if the flow table is empty
 	{
 		packet_in (p_uc_data, packet_size, port, OFPR_NO_MATCH); // Packet In if there are no flows in the table
@@ -145,12 +138,6 @@ void nnOF10_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port)
 
 		if ( i > -1)
 		{
-			flow_counters[i].hitCount++; // Increment flow hit count
-			flow_counters[i].bytes += packet_size;
-			flow_counters[i].lastmatch = (totaltime/2); // Increment flow hit count
-			table_counters[0].matched_count++;
-			table_counters[0].byte_count += packet_size;
-
 			// If there are no actions DROP the packet
 			act_hdr = flow_actions10[i]->action1;
 			if(act_hdr->len == 0 )
@@ -198,136 +185,7 @@ void nnOF10_tablelookup(uint8_t *p_uc_data, uint32_t *ul_size, int port)
 						}
 						break;
 
-						case OFPAT10_SET_DL_SRC:
-						action_setdl  = act_hdr;
-						memcpy(p_uc_data + 6, action_setdl->dl_addr, 6);
-						break;
-
-						case OFPAT10_SET_DL_DST:
-						action_setdl  = act_hdr;
-						memcpy(p_uc_data, action_setdl->dl_addr, 6);
-						break;
-
-						case OFPAT10_SET_NW_SRC:
-						action_setnw  = act_hdr;
-						ipadr = action_setnw->nw_addr;
-						if (eth_prot == vlantag)	// Add 4 bytes to the offset
-						{
-							memcpy(p_uc_data + 30, &ipadr, 4);
-							set_ip_checksum(p_uc_data, packet_size, 18);
-						} else {
-							memcpy(p_uc_data + 26, &ipadr, 4);
-							set_ip_checksum(p_uc_data, packet_size, 14);
-						}
-						break;
-
-						case OFPAT10_SET_NW_DST:
-						action_setnw  = act_hdr;
-						ipadr = action_setnw->nw_addr;
-						if (eth_prot == vlantag)	// Add 4 bytes to the offset
-						{
-							memcpy(p_uc_data + 34, &ipadr, 4);
-							set_ip_checksum(p_uc_data, packet_size, 18);
-						} else {
-							memcpy(p_uc_data + 30, &ipadr, 4);
-							set_ip_checksum(p_uc_data, packet_size, 14);
-						}
-						break;
-
-						case OFPAT10_SET_NW_TOS:
-						action_settos = act_hdr;
-						if (eth_prot == vlantag)
-						{
-							p_uc_data[19] = action_settos->nw_tos;
-							set_ip_checksum(p_uc_data, packet_size, 18);
-							} else {
-							p_uc_data[15] = action_settos->nw_tos;
-							set_ip_checksum(p_uc_data, packet_size, 14);
-						}
-						break;
-						/* MM do not support VLAN matching
-						case OFPAT10_SET_VLAN_VID:
-						action_vlanid  = act_hdr;
-						if (eth_prot == vlantag)
-						{
-							memcpy(pcp, p_uc_data + 14, 2);
-						} else {
-							pcp = 0;
-						}
-						if (action_vlanid->vlan_vid == 0xffff)
-						{
-							vlanid = pcp & ~vlanid_mask;
-						} else {
-							vlanid = (action_vlanid->vlan_vid & vlanid_mask) | (pcp & ~vlanid_mask);
-						}
-						// Does the packet have a VLAN header?
-						if (eth_prot == vlantag)
-						{
-							memcpy(p_uc_data + 14, &vlanid, 2);
-						} else {
-							memmove(p_uc_data + 16, p_uc_data + 12, packet_size - 12);
-							memcpy(p_uc_data + 12, &vlantag,2);
-							memcpy(p_uc_data + 14, &vlanid, 2);
-							packet_size += 4;
-							memcpy(ul_size, &packet_size, 2);
-						}
-						break;
-
-						case OFPAT10_SET_VLAN_PCP:
-						action_vlanpcp = act_hdr;
-						if (eth_prot == vlantag)
-						{
-							memcpy(vlanid, p_uc_data + 14, 2);
-						} else {
-							vlanid = 0;
-						}
-						pcp = ((uint16_t)action_vlanpcp->vlan_pcp)<<13;
-						vlanid = (vlanid & vlanid_mask) | (htons(pcp) & ~vlanid_mask);
-						// Does the packet have a VLAN header?
-						if (eth_prot == vlantag)
-						{
-							memcpy(p_uc_data + 14, &vlanid, 2);
-						} else {
-							memmove(p_uc_data + 16, p_uc_data + 12, packet_size - 12);
-							memcpy(p_uc_data + 12, &vlantag,2);
-							memcpy(p_uc_data + 14, &vlanid, 2);
-							packet_size += 4;
-							memcpy(ul_size, &packet_size, 2);
-						}
-						break;
-
-						case OFPAT10_STRIP_VLAN:
-						if (eth_prot == vlantag)
-						{
-							memmove(p_uc_data + 12, p_uc_data + 16, packet_size - 16);
-							packet_size -= 4;
-							memcpy(ul_size, &packet_size, 2);
-						}
-						break;*/
-
-						case OFPAT10_SET_TP_DST:
-						action_port = act_hdr;
-						tcpport = action_port->tp_port;
-
-						if (eth_prot == vlantag)	// Add 4 bytes to the offset
-						{
-							memcpy(p_uc_data + 40, &tcpport, 2);
-							} else {
-							memcpy(p_uc_data + 36, &tcpport, 2);
-						}
-						break;
-
-						case OFPAT10_SET_TP_SRC:
-						action_port = act_hdr;
-						tcpport = action_port->tp_port;
-						if (eth_prot == vlantag)	// Add 4 bytes to the offset
-						{
-							memcpy(p_uc_data + 38, &tcpport, 2);
-							set_ip_checksum(p_uc_data, packet_size, 18);
-							} else {
-							memcpy(p_uc_data + 34, &tcpport, 2);
-							set_ip_checksum(p_uc_data, packet_size, 14);
-						}
+						default:
 						break;
 					};
 				}
@@ -351,35 +209,6 @@ void of10_message(struct ofp_header *ofph, int size, int len)
 
 		case OFPT10_SET_CONFIG:
 		set_config10(ofph);
-		break;
-
-		case OFPT10_STATS_REQUEST:
-		stats_req  = (struct ofp_stats_request *) ofph;
-		if ( HTONS(stats_req->type) == OFPST_DESC )
-		{
-			stats10_desc_reply(stats_req);
-		}
-
-		if ( HTONS(stats_req->type) == OFPST_FLOW )
-		{
-			stats_flow_reply(stats_req);
-		}
-
-		if ( HTONS(stats_req->type) == OFPST_AGGREGATE )
-		{
-			//stats_reply_aggregate(stats_req);
-		}
-
-		if ( HTONS(stats_req->type) == OFPST_TABLE )
-		{
-			stats_table_reply(stats_req);
-		}
-
-		if ( HTONS(stats_req->type) == OFPST_PORT )
-		{
-
-			stats_port_reply(stats_req);
-		}
 		break;
 
 		case OFPT10_PACKET_OUT:
@@ -437,8 +266,8 @@ void features_reply10(uint32_t xid)
 	features.datapath_id = datapathid << 16;
 	features.n_buffers = htonl(0);		// Number of packets that can be buffered
 	features.n_tables = 1;		// Number of flow tables
-	features.capabilities = htonl(OFPC10_FLOW_STATS + OFPC10_TABLE_STATS + OFPC10_PORT_STATS);	// Switch Capabilities
-	features.actions = htonl((1 << OFPAT10_OUTPUT) /*+ (1 << OFPAT10_SET_VLAN_VID) + (1 << OFPAT10_SET_VLAN_PCP) + (1 << OFPAT10_STRIP_VLAN)*/ + (1 << OFPAT10_SET_DL_SRC) + (1 << OFPAT10_SET_DL_DST) + (1 << OFPAT10_SET_NW_SRC) + (1 << OFPAT10_SET_NW_DST) + (1 << OFPAT10_SET_NW_TOS) + (1 << OFPAT10_SET_TP_SRC) + (1 << OFPAT10_SET_TP_DST));		// Action Capabilities
+	features.capabilities = htonl(OFPC10_PORT_STATS);	// Switch Capabilities
+	features.actions = htonl((1 << OFPAT10_OUTPUT));		// Action Capabilities
 	uint8_t mac[] = {0x00,0x00,0x00,0x00,0x00,0x00};
 
 	memcpy(&buf, &features, sizeof(struct ofp10_switch_features));
@@ -567,187 +396,6 @@ void stats10_desc_reply(struct ofp_stats_request *msg)
 	reply->flags = 0;
 	memcpy(reply->body, &zodiac_desc, sizeof(zodiac_desc));
 	sendtcp(&shared_buffer, len, 1);
-	return;
-}
-
-/*
-*	OpenFlow FLOW Stats Reply message function
-*
-*	@param *msg - pointer to the OpenFlow message.
-*
-*/
-void stats_flow_reply(struct ofp_stats_request *msg)
-{
-	char statsbuffer[2048];
-	struct ofp10_stats_reply *reply;
-	reply = statsbuffer;
-	reply->header.version = OF_Version;
-	reply->header.type = OFPT10_STATS_REPLY;
-	reply->header.xid = msg->header.xid;
-	reply->type = htons(OFPST_FLOW);
-	int len = flow_stats_msg10(&statsbuffer, 0, iLastFlow);
-	reply->header.length = htons(len);
-	reply->flags = 0;
-	sendtcp(&statsbuffer, len, 0);
-	return;
-}
-
-/*
-*	OpenFlow TABLE Stats Reply message function
-*
-*	@param *msg - pointer to the OpenFlow message.
-*
-*/
-void stats_table_reply(struct ofp_stats_request *msg)
-{
-	struct ofp10_stats_reply reply;
-	struct ofp_table_stats tbl_stats;
-	int len = sizeof(struct ofp10_stats_reply) + sizeof(struct ofp_table_stats);
-	char buf[len];
-
-	reply.header.version = OF_Version;
-	reply.header.type = OFPT10_STATS_REPLY;
-	reply.header.length = HTONS(len);
-	reply.header.xid = msg->header.xid;
-	reply.type = HTONS(OFPST_TABLE);
-	reply.flags = 0;
-
-	tbl_stats.table_id = 0;
-	tbl_stats.max_entries = htonl(MAX_FLOWS_13);
-	tbl_stats.active_count = htonl(iLastFlow);
-	tbl_stats.lookup_count = htonll(table_counters[0].lookup_count);
-	tbl_stats.matched_count = htonll(table_counters[0].matched_count);
-	memcpy(buf, &reply, sizeof(struct ofp10_stats_reply));
-	memcpy(buf + sizeof(struct ofp10_stats_reply), &tbl_stats, sizeof(struct ofp_table_stats));
-	sendtcp(&buf, len, 0);
-	return;
-}
-
-/*
-*	OpenFlow PORT Stats Reply message function
-*
-*	@param *msg - pointer to the OpenFlow message.
-*
-*/
-void stats_port_reply(struct ofp_stats_request *msg)
-{
-	struct ofp10_port_stats zodiac_port_stats;
-	struct ofp10_stats_reply reply;
-	struct ofp10_port_stats_request *port_req = msg->body;
-	int stats_size = 0;
-	int len = 0;
-	int port = ntohs(port_req->port_no);
-	uint8_t * buffer = shared_buffer;	// Local position index
-
-	// Clear shared_buffer
-	memset(&shared_buffer, 0, SHARED_BUFFER_LEN);
-
-	if (port == OFPP_NONE)
-	{
-		// Find number of OpenFlow ports present
-		uint8_t ofports = 0;
-		for(uint8_t k=0; k<TOTAL_PORTS; k++)
-		{
-			// Check if port is NOT native
-			if(!(NativePortMatrix & (1<<(k))))
-			{
-				ofports++;
-			}
-		}
-		
-		stats_size = (sizeof(struct ofp10_port_stats) * ofports);	// Calculate length of stats
-		len = sizeof(struct ofp10_stats_reply) + stats_size;		// Calculate total reply length
-
-		// Format reply header
-		reply.header.version = OF_Version;
-		reply.header.type = OFPT10_STATS_REPLY;
-		reply.header.length = htons(len);
-		reply.header.xid = msg->header.xid;
-		reply.type = htons(OFPST_PORT);
-		reply.flags = 0;
-
-		// Write reply header to buffer
-		memcpy(buffer, &reply, sizeof(struct ofp10_stats_reply));
-		buffer += sizeof(struct ofp10_stats_reply);
-
-		// Write port stats to reply message
-		for(uint8_t k=0; k<TOTAL_PORTS; k++)
-		{
-			// Check if port is NOT native
-			if(!(NativePortMatrix & (1<<(k))))
-			{
-				zodiac_port_stats.port_no = htons(k+1);
-				zodiac_port_stats.rx_packets = htonll(phys10_port_stats[k].rx_packets);
-				zodiac_port_stats.tx_packets = htonll(phys10_port_stats[k].tx_packets);
-				zodiac_port_stats.rx_bytes = htonll(phys10_port_stats[k].rx_bytes);
-				zodiac_port_stats.tx_bytes = htonll(phys10_port_stats[k].tx_bytes);
-				zodiac_port_stats.rx_crc_err = htonll(phys10_port_stats[k].rx_crc_err);
-				zodiac_port_stats.rx_dropped = htonll(phys10_port_stats[k].rx_dropped);
-				zodiac_port_stats.tx_dropped = htonll(phys10_port_stats[k].tx_dropped);
-				zodiac_port_stats.rx_frame_err = 0;
-				zodiac_port_stats.rx_over_err = 0;
-				zodiac_port_stats.tx_errors = 0;
-				zodiac_port_stats.rx_errors = 0;
-				zodiac_port_stats.collisions = 0;
-				
-				if((buffer + sizeof(struct ofp10_port_stats)) < (shared_buffer + SHARED_BUFFER_LEN))
-				{
-					// Write port stats to buffer
-					memcpy(buffer, &zodiac_port_stats, sizeof(struct ofp10_port_stats));
-					// Increment buffer pointer
-					buffer += sizeof(struct ofp10_port_stats);
-				}
-				else
-				{
-					TRACE("openflow_10.c: unable to write port stats to shared buffer");
-				}
-			}
-		}
-	}
-	else if (port > 0 && port <= TOTAL_PORTS)	// Respond to request for ports
-	{
-		// Check if port is NOT native
-		if(!(NativePortMatrix & (1<<(port-1))))
-		{
-			stats_size = sizeof(struct ofp10_port_stats);
-			len = sizeof(struct ofp10_stats_reply) + stats_size;
-
-			reply.header.version = OF_Version;
-			reply.header.type = OFPT10_STATS_REPLY;
-			reply.header.length = htons(len);
-			reply.header.xid = msg->header.xid;
-			reply.type = htons(OFPST_PORT);
-			reply.flags = 0;
-
-			zodiac_port_stats.port_no = htons(port);
-			zodiac_port_stats.rx_packets = htonll(phys10_port_stats[port-1].rx_packets);
-			zodiac_port_stats.tx_packets = htonll(phys10_port_stats[port-1].tx_packets);
-			zodiac_port_stats.rx_bytes = htonll(phys10_port_stats[port-1].rx_bytes);
-			zodiac_port_stats.tx_bytes = htonll(phys10_port_stats[port-1].tx_bytes);
-			zodiac_port_stats.rx_crc_err = htonll(phys10_port_stats[port-1].rx_crc_err);
-			zodiac_port_stats.rx_dropped = htonll(phys10_port_stats[port-1].rx_dropped);
-			zodiac_port_stats.tx_dropped = htonll(phys10_port_stats[port-1].tx_dropped);
-			zodiac_port_stats.rx_frame_err = 0;
-			zodiac_port_stats.rx_over_err = 0;
-			zodiac_port_stats.tx_errors = 0;
-			zodiac_port_stats.rx_errors = 0;
-			zodiac_port_stats.collisions = 0;
-
-			memcpy(shared_buffer, &reply, sizeof(struct ofp10_stats_reply));
-			memcpy(shared_buffer + sizeof(struct ofp10_stats_reply), &zodiac_port_stats, stats_size);
-		}
-		else
-		{
-			TRACE("openflow_10.c: requested port is out of range");
-			of10_error(buffer, OFPET10_BAD_REQUEST, OFPBRC10_BAD_STAT);
-		}
-	}
-	else
-	{
-		TRACE("openflow_10.c: requested port is out of range");
-		of10_error(buffer, OFPET10_BAD_REQUEST, OFPBRC10_BAD_STAT);
-	}
-	sendtcp(&shared_buffer, len, 0);
 	return;
 }
 
@@ -918,13 +566,6 @@ void flow_add(struct ofp_header *msg)
 						return;
 					}
 				}
-				// If set VLAD ID field is 0 change to a STRIP_VLAN action
-				/*if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
-				{
-					struct ofp_action_vlan_vid * action_vlan;
-					action_vlan = action_hdr1;
-					if(action_vlan->vlan_vid == 0) action_hdr1->type = htons(OFPAT10_STRIP_VLAN);
-				}*/
 
 				// Copy action
 				if(q == 0) memcpy(flow_actions10[iLastFlow]->action1, action_hdr1, ntohs(action_hdr1->len));
@@ -937,10 +578,7 @@ void flow_add(struct ofp_header *msg)
 			action_cnt_size += ntohs(action_hdr1->len);
 		}
 	}
-
-	flow_counters[iLastFlow].duration = (totaltime/2);
-	flow_counters[iLastFlow].lastmatch = (totaltime/2);
-	flow_counters[iLastFlow].active = true;
+	
 	iLastFlow++;
 	return;
 
@@ -965,51 +603,41 @@ void flow_modify(struct ofp_header *msg)
 
 	for(int q=0;q<iLastFlow;q++)
 	{
-		if(flow_counters[q].active == true)
+		if (field_match10(&ptr_fm->match, &flow_match10[q]->match) == 1)
 		{
-			if (field_match10(&ptr_fm->match, &flow_match10[q]->match) == 1)
+			matched = 1;
+			// Update actions
+			action_hdr = &ptr_fm->actions;
+			if(action_size > 0)
 			{
-				matched = 1;
-				// Update actions
-				action_hdr = &ptr_fm->actions;
-				if(action_size > 0)
+				for(int j=0;j<4;j++)
 				{
-					for(int j=0;j<4;j++)
+					if (action_cnt_size < action_size)
 					{
-						if (action_cnt_size < action_size)
+						action_hdr1 = action_hdr + action_count;
+
+						// Check for unsupported ports
+						if (HTONS(action_hdr1->type) == OFPAT10_OUTPUT)
 						{
-							action_hdr1 = action_hdr + action_count;
+							struct ofp_action_output * action_out;
+							action_out = action_hdr1;
 
-							// Check for unsupported ports
-							if (HTONS(action_hdr1->type) == OFPAT10_OUTPUT)
+							if (htons(action_out->port) == OFPP_NORMAL) // We do not support port NORMAL
 							{
-								struct ofp_action_output * action_out;
-								action_out = action_hdr1;
-
-								if (htons(action_out->port) == OFPP_NORMAL) // We do not support port NORMAL
-								{
-									of10_error(msg, OFPET10_BAD_ACTION, OFPBAC10_BAD_OUT_PORT);
-									return;
-								}
+								of10_error(msg, OFPET10_BAD_ACTION, OFPBAC10_BAD_OUT_PORT);
+								return;
 							}
-							// If set VLAD ID field is 0 change to a STRIP_VLAN action
-							/*if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
-							{
-								struct ofp_action_vlan_vid * action_vlan;
-								action_vlan = action_hdr1;
-								if(action_vlan->vlan_vid == 0) action_hdr1->type = htons(OFPAT10_STRIP_VLAN);
-							}*/
-
-							// Copy actions
-							if(j == 0) memcpy(flow_actions10[q]->action1, action_hdr1, ntohs(action_hdr1->len));
-							if(j == 1) memcpy(flow_actions10[q]->action2, action_hdr1, ntohs(action_hdr1->len));
-							if(j == 2) memcpy(flow_actions10[q]->action3, action_hdr1, ntohs(action_hdr1->len));
-							if(j == 3) memcpy(flow_actions10[q]->action4, action_hdr1, ntohs(action_hdr1->len));
 						}
-						if(ntohs(action_hdr1->len) == 8) action_count += 1;
-						if(ntohs(action_hdr1->len) == 16) action_count += 2;
-						action_cnt_size += ntohs(action_hdr1->len);
+
+						// Copy actions
+						if(j == 0) memcpy(flow_actions10[q]->action1, action_hdr1, ntohs(action_hdr1->len));
+						if(j == 1) memcpy(flow_actions10[q]->action2, action_hdr1, ntohs(action_hdr1->len));
+						if(j == 2) memcpy(flow_actions10[q]->action3, action_hdr1, ntohs(action_hdr1->len));
+						if(j == 3) memcpy(flow_actions10[q]->action4, action_hdr1, ntohs(action_hdr1->len));
 					}
+					if(ntohs(action_hdr1->len) == 8) action_count += 1;
+					if(ntohs(action_hdr1->len) == 16) action_count += 2;
+					action_cnt_size += ntohs(action_hdr1->len);
 				}
 			}
 		}
@@ -1042,51 +670,41 @@ void flow_modify_strict(struct ofp_header *msg)
 
 	for(int q=0;q<iLastFlow;q++)
 	{
-		if(flow_counters[q].active == true)
+		if((memcmp(&flow_match10[q]->match, &ptr_fm->match, sizeof(struct ofp_match)) == 0) && (flow_match10[q]->priority == ptr_fm->priority))
 		{
-			if((memcmp(&flow_match10[q]->match, &ptr_fm->match, sizeof(struct ofp_match)) == 0) && (flow_match10[q]->priority == ptr_fm->priority))
+			matched = 1;
+			// Update actions
+			action_hdr = &ptr_fm->actions;
+			if(action_size > 0)
 			{
-				matched = 1;
-				// Update actions
-				action_hdr = &ptr_fm->actions;
-				if(action_size > 0)
+				for(int j=0;j<4;j++)
 				{
-					for(int j=0;j<4;j++)
+					if (action_cnt_size < action_size)
 					{
-						if (action_cnt_size < action_size)
+						action_hdr1 = action_hdr + action_count;
+
+						// Check for unsupported ports
+						if (HTONS(action_hdr1->type) == OFPAT10_OUTPUT)
 						{
-							action_hdr1 = action_hdr + action_count;
+							struct ofp_action_output * action_out;
+							action_out = action_hdr1;
 
-							// Check for unsupported ports
-							if (HTONS(action_hdr1->type) == OFPAT10_OUTPUT)
+							if (htons(action_out->port) == OFPP_NORMAL) // We do not support port NORMAL
 							{
-								struct ofp_action_output * action_out;
-								action_out = action_hdr1;
-
-								if (htons(action_out->port) == OFPP_NORMAL) // We do not support port NORMAL
-								{
-									of10_error(msg, OFPET10_BAD_ACTION, OFPBAC10_BAD_OUT_PORT);
-									return;
-								}
+								of10_error(msg, OFPET10_BAD_ACTION, OFPBAC10_BAD_OUT_PORT);
+								return;
 							}
-							// If set VLAD ID field is 0 change to a STRIP_VLAN action
-							/*if (htons(action_hdr1->type) == OFPAT10_SET_VLAN_VID)
-							{
-								struct ofp_action_vlan_vid * action_vlan;
-								action_vlan = action_hdr1;
-								if(action_vlan->vlan_vid == 0) action_hdr1->type = htons(OFPAT10_STRIP_VLAN);
-							}*/
-
-							// Copy actions
-							if(j == 0) memcpy(flow_actions10[q]->action1, action_hdr1, ntohs(action_hdr1->len));
-							if(j == 1) memcpy(flow_actions10[q]->action2, action_hdr1, ntohs(action_hdr1->len));
-							if(j == 2) memcpy(flow_actions10[q]->action3, action_hdr1, ntohs(action_hdr1->len));
-							if(j == 3) memcpy(flow_actions10[q]->action4, action_hdr1, ntohs(action_hdr1->len));
 						}
-						if(ntohs(action_hdr1->len) == 8) action_count += 1;
-						if(ntohs(action_hdr1->len) == 16) action_count += 2;
-						action_cnt_size += ntohs(action_hdr1->len);
+
+						// Copy actions
+						if(j == 0) memcpy(flow_actions10[q]->action1, action_hdr1, ntohs(action_hdr1->len));
+						if(j == 1) memcpy(flow_actions10[q]->action2, action_hdr1, ntohs(action_hdr1->len));
+						if(j == 2) memcpy(flow_actions10[q]->action3, action_hdr1, ntohs(action_hdr1->len));
+						if(j == 3) memcpy(flow_actions10[q]->action4, action_hdr1, ntohs(action_hdr1->len));
 					}
+					if(ntohs(action_hdr1->len) == 8) action_count += 1;
+					if(ntohs(action_hdr1->len) == 16) action_count += 2;
+					action_cnt_size += ntohs(action_hdr1->len);
 				}
 			}
 		}
@@ -1113,25 +731,19 @@ void flow_delete(struct ofp_header *msg)
 
 	while(q<iLastFlow)
 	{
-		if(flow_counters[q].active == true)
+		if (field_match10(&ptr_fm->match, &flow_match10[q]->match) == 1)
 		{
-			if (field_match10(&ptr_fm->match, &flow_match10[q]->match) == 1)
-			{
-				if (ptr_fm->flags &  OFPFF10_SEND_FLOW_REM) flowrem_notif10(q,OFPRR10_DELETE);
-				// Clear flow counters and actions
-				memset(&flow_counters[q], 0, sizeof(struct flows_counter));
-				memset(flow_actions10[q], 0, sizeof(struct flow_tbl_actions));
-				// Copy the last flow to here to fill the gap
-				memcpy(flow_match10[q], flow_match10[iLastFlow-1], sizeof(struct ofp_flow_mod));
-				memcpy(flow_actions10[q], &flow_actions10[iLastFlow-1], sizeof(struct flow_tbl_actions));
-				memcpy(&flow_counters[q], &flow_counters[iLastFlow-1], sizeof(struct flows_counter));
-				// Clear the counters and action from the last flow that was moved
-				memset(&flow_counters[iLastFlow-1], 0, sizeof(struct flows_counter));
-				memset(flow_actions10[iLastFlow-1], 0, sizeof(struct flow_tbl_actions));
-				iLastFlow --;
-				} else {
-				q++;
-			}
+			if (ptr_fm->flags &  OFPFF10_SEND_FLOW_REM) flowrem_notif10(q,OFPRR10_DELETE);
+			// Clear flow actions
+			memset(flow_actions10[q], 0, sizeof(struct flow_tbl_actions));
+			// Copy the last flow to here to fill the gap
+			memcpy(flow_match10[q], flow_match10[iLastFlow-1], sizeof(struct ofp_flow_mod));
+			memcpy(flow_actions10[q], &flow_actions10[iLastFlow-1], sizeof(struct flow_tbl_actions));
+			// Clear the action from the last flow that was moved
+			memset(flow_actions10[iLastFlow-1], 0, sizeof(struct flow_tbl_actions));
+			iLastFlow --;
+			} else {
+			q++;
 		}
 	}
 	return;
@@ -1151,13 +763,10 @@ void flow_delete_strict(struct ofp_header *msg)
 
 	for(q=0;q<iLastFlow;q++)
 	{
-		if(flow_counters[q].active == true)
+		if((memcmp(&flow_match10[q]->match, &ptr_fm->match, sizeof(struct ofp_match)) == 0) && (memcmp(&flow_match10[q]->cookie, &ptr_fm->cookie,8) == 0))
 		{
-			if((memcmp(&flow_match10[q]->match, &ptr_fm->match, sizeof(struct ofp_match)) == 0) && (memcmp(&flow_match10[q]->cookie, &ptr_fm->cookie,8) == 0))
-			{
-				if (ptr_fm->flags &  OFPFF10_SEND_FLOW_REM) flowrem_notif10(q,OFPRR10_DELETE);
-				remove_flow10(q);
-			}
+			if (ptr_fm->flags &  OFPFF10_SEND_FLOW_REM) flowrem_notif10(q,OFPRR10_DELETE);
+			remove_flow10(q);
 		}
 	}
 	return;
@@ -1200,7 +809,6 @@ void of10_error(struct ofp_header *msg, uint16_t type, uint16_t code)
 void flowrem_notif10(int flowid, uint8_t reason)
 {
 	struct ofp_flow_removed ofr;
-	double diff;
 
 	ofr.header.type = OFPT10_FLOW_REMOVED;
 	ofr.header.version = OF_Version;
@@ -1209,10 +817,9 @@ void flowrem_notif10(int flowid, uint8_t reason)
 	ofr.cookie = flow_match10[flowid]->cookie;
 	ofr.reason = reason;
 	ofr.priority = flow_match10[flowid]->priority;
-	diff = (totaltime/2) - flow_counters[flowid].duration;
-	ofr.duration_sec = htonl(diff);
-	ofr.packet_count = flow_counters[flowid].hitCount;
-	ofr.byte_count = flow_counters[flowid].bytes;
+	ofr.duration_sec = 0;
+	ofr.packet_count = 0;
+	ofr.byte_count = 0;
 	ofr.idle_timeout = flow_match10[flowid]->idle_timeout;
 	ofr.match = flow_match10[flowid]->match;
 	sendtcp(&ofr, sizeof(struct ofp_flow_removed), 1);

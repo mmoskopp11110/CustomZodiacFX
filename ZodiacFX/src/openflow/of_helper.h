@@ -55,9 +55,7 @@ void packet_fields_parser(uint8_t *pBuffer, struct packet_fields *fields);
 int flowmatch10(uint8_t *pBuffer, int port, struct packet_fields *fields);
 int field_match10(struct ofp_match *match_a, struct ofp_match *match_b);
 void nnOF_timer(void);
-void flow_timeouts(void);
 void clear_flows(void);
-int flow_stats_msg10(char *buffer, int first, int last);
 void set_ip_checksum(uint8_t *p_uc_data, int packet_size, int iphdr_offset);
 void remove_flow10(int flow_id);
 

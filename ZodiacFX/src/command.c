@@ -55,10 +55,8 @@ extern bool debug_output;
 extern int charcount, charcount_last;
 extern struct ofp_flow_mod *flow_match10[MAX_FLOWS_10];
 extern int iLastFlow;
-extern struct flows_counter flow_counters[MAX_FLOWS_13];
-extern struct flow_tbl_actions *flow_actions10[MAX_FLOWS_13];
+extern struct flow_tbl_actions *flow_actions10[MAX_FLOWS_10];
 extern struct ofp10_port_stats phys10_port_stats[TOTAL_PORTS];
-extern struct table_counter table_counters[MAX_TABLES];
 extern bool trace = false;
 extern struct tcp_pcb *tcp_pcb;
 extern uint8_t port_status[TOTAL_PORTS];
@@ -360,7 +358,7 @@ void command_root(char *command, char *param1, char *param2, char *param3)
 
 		printf("\r\n-------------------------------------------------------------------------\r\n");
 		printf("Device Status\r\n");
-		printf(" CPU UID: %d-%d-%d-%d\r\n", uid_buf[0], uid_buf[1], uid_buf[2], uid_buf[3]);
+		printf(" CPU UID: %ld-%ld-%ld-%ld\r\n", uid_buf[0], uid_buf[1], uid_buf[2], uid_buf[3]);
 		printf(" Firmware Version: %s\r\n",VERSION);
 		printf(" CPU Temp: %d C\r\n", (int)ul_temp);
 		printf(" Uptime: %02d:%02d:%02d", hr, min, sec);
@@ -1058,10 +1056,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 						printf("  ICMP Type: %d\t\t\t\tICMP Code: %d\r\n",ntohs(flow_match10[i]->match.tp_src), ntohs(flow_match10[i]->match.tp_dst));
 					}
 					printf("  Wildcards: 0x%.8x\t\t\tCookie: 0x%" PRIx64 "\r\n",ntohl(flow_match10[i]->match.wildcards), htonll(flow_match10[i]->cookie));
-					printf("\r Attributes:\r\n");
-					printf("  Priority: %d\t\t\tDuration: %d secs\r\n",ntohs(flow_match10[i]->priority), (totaltime/2) - flow_counters[i].duration);
-					printf("  Hard Timeout: %d secs\t\t\tIdle Timeout: %d secs\r\n",ntohs(flow_match10[i]->hard_timeout), ntohs(flow_match10[i]->idle_timeout));
-					printf("  Byte Count: %d\t\t\tPacket Count: %d\r\n",flow_counters[i].bytes, flow_counters[i].hitCount);
 					printf("\r\n Actions:\r\n");
 					for(int q=0;q<4;q++)
 					{
@@ -1120,9 +1114,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 			{
 				printf("Table: 0\r\n");
 				printf(" Flows: %d\r\n",iLastFlow);
-				printf(" Lookups: %d\r\n",table_counters[0].lookup_count);
-				printf(" Matches: %d\r\n",table_counters[0].matched_count);
-				printf(" Bytes: %d\r\n",table_counters[0].byte_count);
 				printf("\r\n");
 			} else printf("No Flows.\r\n");
 			printf("-------------------------------------------------------------------------\r\n");
@@ -1143,8 +1134,6 @@ void command_openflow(char *command, char *param1, char *param2, char *param3)
 			printf(" Version: 1.0 (0x01)\r\n");
 			printf(" No tables: 1\r\n");
 			printf(" No flows: %d\r\n", iLastFlow);
-			printf(" Total Lookups: %d\r\n",table_counters[0].lookup_count);
-			printf(" Total Matches: %d\r\n",table_counters[0].matched_count);
 		}
 		printf("\r\n-------------------------------------------------------------------------\r\n");
 		return;

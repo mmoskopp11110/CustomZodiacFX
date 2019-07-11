@@ -53,10 +53,8 @@ extern int OF_Version;
 extern int totaltime;
 extern uint8_t last_port_status[TOTAL_PORTS];
 extern uint8_t port_status[TOTAL_PORTS];
-extern struct flows_counter flow_counters[MAX_FLOWS_13];
 extern struct ofp_flow_mod *flow_match10[MAX_FLOWS_10];
 extern struct flow_tbl_actions *flow_actions10[MAX_FLOWS_10];
-extern struct table_counter table_counters[MAX_TABLES];
 
 // Local Variables
 uint8_t timer_alt = 0;
@@ -137,7 +135,6 @@ void nnOF_timer(void)
 			if (Zodiac_Config.stats_interval > 0) update_port_stats();
 			timer_alt = 1;
 		} else if (timer_alt == 1){
-			flow_timeouts();
 			if (Zodiac_Config.stats_interval > 0) update_port_status();
 			// If port status has changed send a port status message
 			for (int x=0;x<TOTAL_PORTS;x++)
@@ -192,12 +189,6 @@ int flowmatch10(uint8_t *pBuffer, int port, struct packet_fields *fields)
 
 	for (i=0;i<iLastFlow;i++)
 	{
-		// Make sure its an active flow
-		if (flow_counters[i].active == false)
-		{
-			continue;
-		}
-
 		// If this flow is of a lower priority then one that is already match then there is no point going through a check.
 		if (matched_flow > -1)
 		{
@@ -345,8 +336,7 @@ int field_match10(struct ofp_match *match_a, struct ofp_match *match_b)
 */
 void remove_flow10(int flow_id)
 {
-	// Clear flow counters and actions
-	memset(&flow_counters[flow_id], 0, sizeof(struct flows_counter));
+	// Clear flow actions
 	membag_free(flow_match10[flow_id]);
 	membag_free(flow_actions10[flow_id]);
 	// Copy the last flow to here to fill the gap
@@ -355,45 +345,9 @@ void remove_flow10(int flow_id)
 	// Clear the pointers to the flows that moved
 	flow_match10[iLastFlow-1] = NULL;
 	flow_actions10[iLastFlow-1] = NULL;
-	// Move the counters
-	memcpy(&flow_counters[flow_id], &flow_counters[iLastFlow-1], sizeof(struct flows_counter));
-	// Clear the counters and action from the last flow that was moved
-	memset(&flow_counters[iLastFlow-1], 0, sizeof(struct flows_counter));
 	iLastFlow --;
 	return;
 
-}
-
-/*
-*	Processes flow timeouts
-*
-*/
-void flow_timeouts()
-{
-	for (int i=0;i<iLastFlow;i++)
-	{
-		if (flow_counters[i].active == true) // Make sure its an active flow
-		{
-			if (&flow_match10[i]->idle_timeout != OFP_FLOW_PERMANENT && flow_counters[i].lastmatch > 0 && ((totaltime/2) - flow_counters[i].lastmatch) >= ntohs(&flow_match10[i]->idle_timeout))
-			{
-				if (ntohs(flow_match10[i]->flags) &  OFPFF10_SEND_FLOW_REM) flowrem_notif10(i,OFPRR10_IDLE_TIMEOUT);
-				// Clear flow counters and actions
-				remove_flow10(i);
-				iLastFlow --;
-				return;
-			}
-
-			if (&flow_match10[i]->hard_timeout != OFP_FLOW_PERMANENT && flow_counters[i].lastmatch > 0 && ((totaltime/2) - flow_counters[i].duration) >= ntohs(&flow_match10[i]->hard_timeout))
-			{
-				if (ntohs(&flow_match10[i]->flags) &  OFPFF10_SEND_FLOW_REM) flowrem_notif10(i,OFPRR10_HARD_TIMEOUT);
-				// Clear flow counters and actions
-				remove_flow10(i);
-				iLastFlow --;
-				return;
-			}
-		}
-	}
-	return;
 }
 
 /*
@@ -405,88 +359,9 @@ void clear_flows(void)
 	iLastFlow = 0;
 	membag_init();
 
-	/*	Clear OpenFlow 1.0 flow table	*/
-	if (OF_Version == 0x01)
+	for(int q=0;q<MAX_FLOWS_10;q++)
 	{
-		for(int q=0;q<MAX_FLOWS_10;q++)
-		{
-			memset(&flow_counters[q], 0, sizeof(struct flows_counter));
-			if (flow_match10[q] != NULL) flow_match10[q] = NULL;
-			if (flow_actions10[q] != NULL) flow_actions10[q] = NULL;
-		}
+		if (flow_match10[q] != NULL) flow_match10[q] = NULL;
+		if (flow_actions10[q] != NULL) flow_actions10[q] = NULL;
 	}
-}
-
-/*
-*	Builds the body of a flow stats request for OF 1.0
-*
-*	@param *buffer- pointer to the buffer to store the response
-*	@param *first - first flow to include
-*	@param *last - last flow to include
-*
-*/
-int flow_stats_msg10(char *buffer, int first, int last)
-{
-	struct ofp_flow_stats flow_stats;
-	struct ofp_action_header *action_hdr1;
-	struct ofp_action_header *action_hdr2;
-	struct ofp_action_header *action_hdr3;
-	struct ofp_action_header *action_hdr4;
-	int len = sizeof(struct ofp10_stats_reply);
-	int stats_size = 0;
-	int actionsize = 0;
-	if ((last - first) > 20) last = first + 20;	// Only show first 20 flows to conserve memory
-
-	for(int k=first; k<last;k++)
-	{
-		action_hdr1 = flow_actions10[k]->action1;
-		action_hdr2 = flow_actions10[k]->action2;
-		action_hdr3 = flow_actions10[k]->action3;
-		action_hdr4 = flow_actions10[k]->action4;
-		stats_size = sizeof(flow_stats);
-		flow_stats.table_id = 0;
-		memcpy(&flow_stats.match, &flow_match10[k]->match, sizeof(struct ofp_match));
-		memcpy(&flow_stats.cookie, &flow_match10[k]->cookie, sizeof(uint64_t));
-		memcpy(&flow_stats.priority, flow_match10[k]->priority, sizeof(uint16_t));
-		memcpy(&flow_stats.idle_timeout, flow_match10[k]->idle_timeout, sizeof(uint16_t));
-		memcpy(&flow_stats.hard_timeout, flow_match10[k]->hard_timeout, sizeof(uint16_t));
-		flow_stats.duration_sec = HTONL((totaltime/2) - flow_counters[k].duration);
-		flow_stats.duration_nsec = 0;
-		flow_stats.packet_count = htonll(flow_counters[k].hitCount);
-		flow_stats.byte_count = htonll(flow_counters[k].bytes);
-		actionsize = ntohs(action_hdr1->len) + ntohs(action_hdr2->len) + ntohs(action_hdr3->len) + ntohs(action_hdr4->len);
-		flow_stats.length = htons(stats_size + actionsize);
-
-		memcpy(buffer + len, &flow_stats, stats_size);
-		len += stats_size;
-
-		if(ntohs(action_hdr1->len) > 0)
-		{
-			memcpy(buffer + len, flow_actions10[k]->action1, ntohs(action_hdr1->len));
-			stats_size += ntohs(action_hdr1->len);
-			len += ntohs(action_hdr1->len);
-		}
-
-		if(ntohs(action_hdr2->len) > 0)
-		{
-			memcpy(buffer + len, flow_actions10[k]->action2, ntohs(action_hdr2->len));
-			stats_size += ntohs(action_hdr2->len);
-			len += ntohs(action_hdr2->len);
-		}
-
-		if(ntohs(action_hdr3->len) > 0)
-		{
-			memcpy(buffer + len, flow_actions10[k]->action3, ntohs(action_hdr3->len));
-			stats_size += ntohs(action_hdr3->len);
-			len += ntohs(action_hdr3->len);
-		}
-
-		if(ntohs(action_hdr4->len) > 0)
-		{
-			memcpy(buffer + len, flow_actions10[k]->action4, ntohs(action_hdr4->len));
-			stats_size += ntohs(action_hdr4->len);
-			len += ntohs(action_hdr4->len);
-		}
-	}
-	return len;
 }

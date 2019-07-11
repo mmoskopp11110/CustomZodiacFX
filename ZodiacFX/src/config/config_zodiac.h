@@ -38,11 +38,8 @@
 #define MAX_OFP_VERSION   0x01
 
 #define MAX_FLOWS_10	128		// Maximum number of flows for OpenFlow 1.0
-#define MAX_FLOWS_13	512		// Maximum number of flows for OpenFlow 1.3
 
 #define MAX_VLANS	4	// Maximum number of VLANS, default is 1 per port (4)
-
-#define MAX_TABLES	10	// Maximum number of tables for OpenFlow 1.3 and higher
 
 #define HB_INTERVAL	2	// Number of seconds between heartbeats
 #define HB_TIMEOUT	6	// Number of seconds to wait when there is no response from the controller

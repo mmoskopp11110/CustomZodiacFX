@@ -43,14 +43,11 @@
 // Global variables
 extern struct zodiac_config Zodiac_Config;
 extern uint8_t port_status[TOTAL_PORTS];
-extern struct ofp10_port_stats phys10_port_stats[TOTAL_PORTS];
 
 // Local Variables
 struct ofp_switch_config Switch_config;
 struct ofp_flow_mod *flow_match10[MAX_FLOWS_10];
 struct flow_tbl_actions *flow_actions10[MAX_FLOWS_10];
-struct flows_counter flow_counters[MAX_FLOWS_13];
-struct table_counter table_counters[MAX_TABLES];
 int iLastFlow = 0;
 uint8_t shared_buffer[SHARED_BUFFER_LEN];
 char sysbuf[64];
@@ -75,7 +72,6 @@ void echo_reply(struct ofp_header *ofph, int size, int len);
 err_t TCPready(void *arg, struct tcp_pcb *tpcb, err_t err);
 void tcp_error(void * arg, err_t err);
 static err_t of_receive(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err);
-static err_t of_sent(void *arg, struct tcp_pcb *tpcb, uint16_t len);
 
 /*
 *	Converts a 64bit value from host to network format
@@ -158,7 +154,7 @@ static err_t of_receive(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t e
 				break;
 				TRACE("openflow.c: Corrupt OpenFlow Message!!!");	
 			}
-			TRACE("openflow.c: Processing %d byte OpenFlow message %u (%d)", plen, htonl(ofph->xid), size);
+			TRACE("openflow.c: Processing %d byte OpenFlow message %lu (%d)", plen, htonl(ofph->xid), size);
 
 			switch(ofph->type)
 			{
@@ -255,7 +251,6 @@ void echo_request(void)
 */
 void sendtcp(const void *buffer, uint16_t len, uint8_t push)
 {
-	err_t err;
 	uint16_t buf_size;
 	
 	if( tcp_pcb != tcp_pcb_check)
@@ -269,11 +264,11 @@ void sendtcp(const void *buffer, uint16_t len, uint8_t push)
 	if (push == 0)
 	{
 		TRACE("openflow.c: Sending %d bytes to TCP stack, %d available in buffer", len, buf_size);
-		err = tcp_write(tcp_pcb, buffer, len, TCP_WRITE_FLAG_COPY + TCP_WRITE_FLAG_MORE);
+		tcp_write(tcp_pcb, buffer, len, TCP_WRITE_FLAG_COPY + TCP_WRITE_FLAG_MORE);
 	
 	} else {
 		TRACE("openflow.c: Sending %d bytes immediately, %d available in buffer", len, buf_size);
-		err = tcp_write(tcp_pcb, buffer, len, TCP_WRITE_FLAG_COPY);
+		tcp_write(tcp_pcb, buffer, len, TCP_WRITE_FLAG_COPY);
 		tcp_output(tcp_pcb);
 	}
 
@@ -320,7 +315,7 @@ void task_openflow(void)
 	}
 
 
-	if((sys_get_ms() - fast_of_timer) > 500)	// every 500 ms (0.5 secs)
+	if((sys_get_ms() - fast_of_timer) > 1000)	// every 1000ms
 	{
 		fast_of_timer = sys_get_ms();
 		nnOF_timer();
