@@ -1,0 +1,5 @@
+flask
+eventlet
+flask-socketio
+requests
+iperf3
