@@ -45,7 +45,7 @@ class SimpleSwitch(app_manager.RyuApp):
         ofproto = datapath.ofproto
         ofproto_parser = datapath.ofproto_parser
 
-        match = ofproto_parser.OFPMatch()
+        
 
         mod = ofproto_parser.OFPFlowMod(
             datapath=datapath, match=match, cookie=0,
@@ -104,15 +104,16 @@ class SimpleSwitch(app_manager.RyuApp):
                 #  if TCP Protocol
                 elif protocol == in_proto.IPPROTO_TCP:
                     t = pkt.get_protocol(tcp.tcp)
-                    match = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, nw_src=srcip, nw_dst=dstip, nw_proto=protocol, 			    tp_src=t.src_port, tp_dst=t.dst_port,)
+                    match = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, nw_src=srcip, nw_dst=dstip, nw_proto=protocol, 			    tp_src=t.src_port, tp_dst=t.dst_port)
             
                 #  If UDP Protocol 
                 elif protocol == in_proto.IPPROTO_UDP:
                     u = pkt.get_protocol(udp.udp)
-                    match = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, nw_src=srcip, nw_dst=dstip, nw_proto=protocol,      	             tp_src=u.src_port, tp_dst=u.dst_port,)
+                    match = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, nw_src=srcip, nw_dst=dstip, nw_proto=protocol,      	             tp_src=u.src_port, tp_dst=u.dst_port)
 	
             else:
                  match = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_dst=dst, dl_src=src)
+        self.add_flow(datapath, match, actions)
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
