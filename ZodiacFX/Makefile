@@ -311,10 +311,8 @@ $(PROJECT).elf: \
  src/main.o \
  src/openflow/of_helper.o \
  src/openflow/openflow_10.o \
- src/openflow/openflow_13.o \
  src/openflow/openflow.o \
  src/switch.o \
- src/http.o \
  src/flash.o \
  src/timers.o \
  src/ksz8795clx/ethernet_phy.o \
@@ -451,13 +449,6 @@ src/openflow/openflow_10.c: \
  src/switch.h \
  src/openflow/of_helper.h
 
-src/openflow/openflow_13.o: src/openflow/openflow_13.c
-
-src/openflow/openflow_13.c: \
- src/command.h \
- src/openflow/openflow.h \
- src/switch.h
-
 src/openflow/openflow.o: src/openflow/openflow.c
 
 src/openflow/openflow.c: \
@@ -468,8 +459,7 @@ src/openflow/openflow.c: \
  src/timers.h 
 
 src/openflow/openflow.h: \
- src/openflow_spec/openflow_spec10.h \
- src/openflow_spec/openflow_spec13.h
+ src/openflow_spec/openflow_spec10.h
 
 src/switch.o: src/switch.c
 
@@ -479,18 +469,6 @@ src/switch.c: \
  src/config/conf_eth.h \
  src/command.h \
  src/ksz8795clx/ethernet_phy.h
-
-src/http.c: \
- src/http.h \
- src/lwip/include/lwip/tcp.h \
- src/lwip/include/lwip/err.h \
- src/timers.h \
- src/command.h \
- src/trace.h \
- src/config/config_zodiac.h \
- src/openflow/openflow.h \
- src/eeprom.h \
- src/flash.h
 
 src/timers.o: src/timers.c
 
@@ -705,7 +683,6 @@ clean:
 	$(RM) src/main.o
 	$(RM) src/openflow/of_helper.o
 	$(RM) src/openflow/openflow_10.o
-	$(RM) src/openflow/openflow_13.o
 	$(RM) src/openflow/openflow.o
 	$(RM) src/switch.o
 	$(RM) src/timers.o
