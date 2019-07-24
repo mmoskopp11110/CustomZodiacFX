@@ -101,10 +101,11 @@ class SimpleSwitch(app_manager.RyuApp):
         if not self.flows_initialized and ip and ip.src == '10.0.3.7' and ip.dst == '10.0.3.9':
             self.flows_initialized = True
             self.logger.info("add dummy flows...")
-            for i in range(1, 100):
+            for i in range(1, 119):
                 hub.sleep(0.1)
                 match = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_dst=dst, dl_src=src)
                 self.add_flow(datapath, match, None)
+            self.logger.info("successfully added dummy flows")
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:

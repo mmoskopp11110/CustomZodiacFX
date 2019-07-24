@@ -40,15 +40,20 @@
             transports: ['websocket']
         });
 
+        socket.on('switch_ready', function() {
+            if(!test_running) {
+                $("#btnSubmit").removeAttr("disabled");
+                console.log("ready for measurements");
+            }
+        });
+
         socket.on('connect', function() {
-            $("#btnSubmit").removeAttr("disabled");
+            console.log("socket connected");
         });
 
         let error = getQueryVariable("err");
-        let state = getQueryVariable("s");
-        if (state === null){
-            state = 0;
-        }
+        let state = 0;
+        let test_running = false;
         let myChart = null;
 
         $(document).ready(() => {
@@ -60,21 +65,17 @@
             myChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['Original v0.85', 'OF 1.0, no HTTP Server', 'OF 1.0, no Statistics', 'OF 1.0, match first flow'],
+                    labels: ['ZodiacFX v0.85', 'ZodiacFX v0.85 (first match policy)'],
                     datasets: [{
                         label: 'Throughput [Mb/s]',
                         data: [],
                         backgroundColor: [
                             'rgba(255, 99, 132, 0.2)',
-                            'rgba(54, 162, 235, 0.2)',
-                            'rgba(255, 206, 86, 0.2)',
-                            'rgba(75, 192, 192, 0.2)'
+                            'rgba(54, 162, 235, 0.2)'
                         ],
                         borderColor: [
                             'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(75, 192, 192, 1)'
+                            'rgba(54, 162, 235, 1)'
                         ],
                         borderWidth: 1
                     }]
@@ -92,7 +93,7 @@
 
             $("#btnSubmit").on('click', () => {
                 $("#btnSubmit").prop("disabled", true);
-                if(state >= 3){
+                if(state >= 1){
                     $("#btnSubmit").html("Finished! Remove button in 3s...");
                     setTimeout(()=>{
                         $("#btnSubmit").html("Finished! Remove button in 2s...");
@@ -104,15 +105,25 @@
                         $("#btn").remove();
                     }, 3000);
                 }
+                test_running = true;
                 socket.emit("sdn_continue", {state: state});
             });
 
             socket.on('sdn_throughput_result', function(data) {
+                if(data['throughput'] < 0){
+                    $("#btnSubmit").removeAttr("disabled");
+                    alert("Throughput test failed. Please try again.");
+                    return;
+                }
                 addData(myChart, data['throughput']);
                 state = state + 1;
-                if(state < 4){
-                    $('#setupImg').attr('src', '/img/setup' + state + '.png');
-                    $("#btnSubmit").removeAttr("disabled");
+                if(state < 2){
+                    if(state == 1) {
+                        setTimeout(() => {
+                            alert('Exchange the switch now for the next measurement.');
+                            $("#btnSubmit").removeAttr("disabled");
+                        }, 5000);
+                    }
                 }
             });
         });
@@ -140,19 +151,19 @@
 <body class="text-center">
     <!-- wrap for layout -->
     <div class="container text-center">
-        <div class="row">
-            <div>
-                <h4>Current Setup</h4>
-                <img id="setupImg" src="/img/setup0.png" alt="OF Setup MockUp" style="max-height: 500px; max-width: 500px">
-            </div>
-            <div id="btn" class="col-sm-10 col-md-6 margin-auto mx-auto">
-                <!-- submit button -->
-                <button type="submit" disabled id="btnSubmit" class="btn btn-lg btn-primary btn-block">
-                    <span id="btnIcoLogin" class="fas fa-sign-in-alt"></span>
-                    <span id="btnSubmit">Start</span>
-                </button>
-            </div>
-        </div>
+        <div>
+            <h4>Measurement Setup</h4>
+            <img id="setupImg" src="/img/setup.jpg" alt="SDN Setup Image" style="max-width: 400px; max-height: 400px;">
+        </div><br>
+        <br>
+        <div id="btn" class="col-sm-10 col-md-6 margin-auto mx-auto">
+            <!-- submit button -->
+            <button type="submit" disabled id="btnSubmit" class="btn btn-lg btn-primary btn-block">
+                <span id="btnIcoLogin" class="fas fa-sign-in-alt"></span>
+                <span id="btnSubmit">Start throughput measurement</span>
+            </button>
+        </div><br>
+        <br>
         <div class="col-sm-10 col-md-6 margin-auto mx-auto">
             <canvas id="myChart" width="400" height="400"></canvas>
         </div>
