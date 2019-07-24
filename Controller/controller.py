@@ -53,7 +53,126 @@ class SimpleSwitch(app_manager.RyuApp):
             priority=ofproto.OFP_DEFAULT_PRIORITY, 
             flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
         datapath.send_msg(mod)
+    def add_flow1(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
 
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=0, hard_timeout=0,
+            priority=1, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow2(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=0, hard_timeout=2,
+            priority=2, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow3(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=1, hard_timeout=4,
+            priority=3, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow4(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=0, hard_timeout=5,
+            priority=4, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow5(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=4, hard_timeout=5,
+            priority=5, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow6(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=3, hard_timeout=5,
+            priority=ofproto.OFP_DEFAULT_PRIORITY, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow7(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=2, hard_timeout=6,
+            priority=7, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow8(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=0, hard_timeout=0,
+            priority=8, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow9(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=3, hard_timeout=7,
+            priority=9, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
+    def add_flow10(self, datapath, match, actions):
+        ofproto = datapath.ofproto
+        ofproto_parser = datapath.ofproto_parser
+
+        
+
+        mod = ofproto_parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=2, hard_timeout=5,
+            priority=10, 
+            flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
+        datapath.send_msg(mod)
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
@@ -112,8 +231,163 @@ class SimpleSwitch(app_manager.RyuApp):
                     match = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, nw_src=srcip, nw_dst=dstip, nw_proto=protocol,      	             tp_src=u.src_port, tp_dst=u.dst_port)
 	
             else:
-                 match = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_dst=dst, dl_src=src)
-        self.add_flow(datapath, match, actions)
+                match = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_dst=dst, dl_src=src)
+            self.add_flow(datapath, match, actions)
+            match5 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match6 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match7 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_TCP)
+            match8 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match9 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match10 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match11 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match12 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match13 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_ICMP)
+            match14 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,                 			)
+            match15 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_TCP)
+            match16 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst)
+            match17 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match18 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_ICMP)
+            match19 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match20 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match21 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, )
+            match22 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match23 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_ICMP)
+            match24 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match25 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, )
+            match26 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match27 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match28 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, )
+            match29 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match30 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match31 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_TCP)
+            match32 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, )
+            match33 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_ICMP)
+            match34 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match35 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, )
+            match36 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match37 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match38 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match39 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match40 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match41 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match42 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match43 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match44 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match45 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match46 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, )
+            match47 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_TCP)
+            match48 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match49 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match50 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match51 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match52 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match53 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match54 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_ICMP)
+            match55 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match56 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_TCP)
+            match57 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match58 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match59 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match60 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match61 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst)
+            match62 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match63 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, )
+            match64 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match65 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_TCP)
+            match66 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match67 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, )
+            match68 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match69 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, )
+            match70 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, )
+            match71 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match72 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match73 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match74 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_ICMP)
+            match75 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match76 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match77 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst,)
+            match78 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,)
+            match79 = ofproto_parser.OFPMatch(dl_type=ether_types.ETH_TYPE_IP, dl_src=src, dl_dst=dst, nw_proto=in_proto.IPPROTO_TCP)
+            match80 = ofproto_parser.OFPMatch(in_port=msg.in_port, dl_src=src, dl_dst=dst,nw_proto=in_proto.IPPROTO_TCP)
+            
+            
+            self.add_flow1(datapath, match5, actions)
+            self.add_flow2(datapath, match6, actions)
+            self.add_flow3(datapath, match7, actions)
+            self.add_flow4(datapath, match8, actions)
+            self.add_flow5(datapath, match9, actions)
+            self.add_flow6(datapath, match10, actions)
+            self.add_flow7(datapath, match11, actions)
+            self.add_flow8(datapath, match12, actions)
+            self.add_flow9(datapath, match13, actions)
+            self.add_flow10(datapath, match14, actions)
+            self.add_flow1(datapath, match15, actions)
+            self.add_flow2(datapath, match16, actions)
+            self.add_flow3(datapath, match17, actions)
+            self.add_flow4(datapath, match18, actions)
+            self.add_flow5(datapath, match19, actions)
+            self.add_flow6(datapath, match20, actions)
+            self.add_flow7(datapath, match21, actions)
+            self.add_flow8(datapath, match22, actions)
+            self.add_flow9(datapath, match23, actions)
+            self.add_flow10(datapath, match24, actions)
+            self.add_flow1(datapath, match25, actions)
+            self.add_flow2(datapath, match26, actions)
+            self.add_flow3(datapath, match27, actions)
+            self.add_flow4(datapath, match28, actions)
+            self.add_flow5(datapath, match29, actions)
+            self.add_flow6(datapath, match30, actions)
+            self.add_flow7(datapath, match31, actions)
+            self.add_flow8(datapath, match32, actions)
+            self.add_flow9(datapath, match33, actions)
+            self.add_flow10(datapath, match34, actions)
+            self.add_flow1(datapath, match35, actions)
+            self.add_flow2(datapath, match36, actions)
+            self.add_flow3(datapath, match37, actions)
+            self.add_flow4(datapath, match38, actions)
+            self.add_flow5(datapath, match39, actions)
+            self.add_flow6(datapath, match40, actions)
+            self.add_flow7(datapath, match41, actions)
+            self.add_flow8(datapath, match42, actions)
+            self.add_flow9(datapath, match43, actions)
+            self.add_flow10(datapath, match44, actions)
+            self.add_flow1(datapath, match45, actions)
+            self.add_flow2(datapath, match46, actions)
+            self.add_flow3(datapath, match47, actions)
+            self.add_flow4(datapath, match48, actions)
+            self.add_flow5(datapath, match49, actions)
+            self.add_flow6(datapath, match50, actions)
+            self.add_flow7(datapath, match51, actions)
+            self.add_flow8(datapath, match52, actions)
+            self.add_flow9(datapath, match53, actions)
+            self.add_flow10(datapath, match54, actions)
+            self.add_flow1(datapath, match55, actions)
+            self.add_flow2(datapath, match56, actions)
+            self.add_flow3(datapath, match57, actions)
+            self.add_flow4(datapath, match58, actions)
+            self.add_flow5(datapath, match59, actions)
+            self.add_flow6(datapath, match60, actions)
+            self.add_flow7(datapath, match61, actions)
+            self.add_flow8(datapath, match62, actions)
+            self.add_flow9(datapath, match63, actions)
+            self.add_flow10(datapath, match64, actions)
+            self.add_flow1(datapath, match65, actions)
+            self.add_flow2(datapath, match66, actions)
+            self.add_flow3(datapath, match67, actions)
+            self.add_flow4(datapath, match68, actions)
+            self.add_flow5(datapath, match69, actions)
+            self.add_flow6(datapath, match70, actions)
+            self.add_flow7(datapath, match71, actions)
+            self.add_flow8(datapath, match72, actions)
+            self.add_flow9(datapath, match73, actions)
+            self.add_flow10(datapath, match74, actions)
+            self.add_flow1(datapath, match75, actions)
+            self.add_flow2(datapath, match76, actions)
+            self.add_flow3(datapath, match77, actions)
+            self.add_flow4(datapath, match78, actions)
+            self.add_flow5(datapath, match79, actions)
+            self.add_flow6(datapath, match80, actions)
+            
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
