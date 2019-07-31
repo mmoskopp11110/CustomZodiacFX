@@ -10,7 +10,7 @@
 └── Firmware           <- The Zodiac FX firmware
     ├── README.md      <- Zodiac FX README/Instructions for building the firmware.
     ├── FirmwareBins   <- Custom firmware binaries ready to be flashed to the switch.
-    └── FirmwareSrc    <- Contains different versions of the ZodiacFX firmware source code.
+    └── FirmwareSrc    <- All firmware versions. Every folder contains a ChangesInThisVersion.md.
         ├── 0.85       <- The original ZodiacFX firmware in version 0.85.
         ├── A          <- Custom firmware A (without http server, OF 1.3 and VLAN matching/actions).
         ├── B          <- Custom firmware B (without port/flow/table stats).
