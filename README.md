@@ -24,3 +24,28 @@
 * Atmel SAM-BA In-system Programmer (https://www.microchip.com/DevelopmentTools/ProductDetails/Atmel%20SAM-BA%20In-system%20Programmer) for resetting the firmware
 * Atmel Studio 7 (https://www.microchip.com/mplab/avr-support/atmel-studio-7) for building the firmware
 * iperf3 (https://iperf.fr/) for the throughput measurements
+
+## Building/Flashing the Firmware to the Zodiac FX switch
+
+The instructions below are based on the instructions available in the Zodiac FX README.
+
+### Building the Firmware
+
+* open the respective .atsln file with Atmel Studio 7
+* build the "Release" configuration of the solution
+
+### Prepare the Firmware
+
+* flash the built binary
+    * **Note: CLI will output that the firmware verification failed**
+* In the root context, type the hidden 'get crc' command
+    * **The two crc bytes for the firmware binary are returned**
+* Append the crc to the binary with a hex editor (HxD)
+* The firmware is now ready to be successfully flashed
+
+### Flashing the Firmware
+
+* **To update via the CLI (extraputty)**:
+	* In the root context, type the 'update' command
+	* When prompted, begin the firmware update via the XMODEM protocol
+	* If the firmware update is successful, Zodiac FX will automatically restart to complete the update
