@@ -1,5 +1,10 @@
 ## Setup
 
+### requirements
+* Unix host
+* Python3.6+
+* iperf3
+
 ### pip
 ``` bash
 # install dependencies

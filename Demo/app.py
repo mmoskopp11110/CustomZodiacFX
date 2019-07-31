@@ -4,7 +4,6 @@ from flask import Flask, \
     redirect
 from flask_socketio import SocketIO
 import iperf3
-import os
 
 
 """"
@@ -20,27 +19,11 @@ threads
 """
 
 
-def setup_switch():
-    global switch_ready
-    switch_ready = False
-    print("setting up the switch")
-    result = None
-    while not result or result.error:
-        client = iperf3.Client()
-        client.duration = 1
-        client.server_hostname = '10.0.3.9'
-        client.port = 5201
-        result = client.run()
-    socketio.sleep(15)
-    print("switch is ready")
-    switch_ready = True
-    socketio.emit("switch_ready", {})
-
-
 def test_sdn_throughput():
-    global switch_ready
-    while not switch_ready:
-        socketio.sleep(1)
+    """
+    Test tcp throughput and send result via socketio
+    :return:
+    """
     client = iperf3.Client()
     client.duration = 10
     client.server_hostname = '10.0.3.9'
@@ -73,27 +56,36 @@ def home():
 socketIO handlers
 """
 @socketio.on('sdn_continue')
-def handle_my_custom_event(json):
-    global switch_ready
+def sdn_continue(json):
+    """
+    Handle "sdn_continue" socketio event
+    :param json: dictionary that should contain "state" between 0 and 2 which indicates the state
+    of the frontend. (0: init state, 1: after first measurement, 2: finished)
+    :return:
+    """
     print('received json: ' + str(json))
     if json['state'] >= 2:
         return
-    if json['state'] > 0:
-        switch_ready = False
-        socketio.start_background_task(setup_switch)
     socketio.start_background_task(test_sdn_throughput)
 
 
 @socketio.on('connect')
 def connect():
-    global switch_ready
-    if switch_ready:
-        socketio.emit("switch_ready", {})
-        print('Client ' + request.sid + ' connected')
+    """
+    Placeholder for handling socketio connections.
+    Replies with "switch_ready" socketio event
+    :return:
+    """
+    socketio.emit("switch_ready", {})
+    print('Client ' + request.sid + ' connected')
 
 
 @socketio.on('disconnect')
 def disconnect():
+    """
+    Placeholder for handling socketio connections.
+    :return:
+    """
     print('Client ' + request.sid + ' disconnected')
 
 
@@ -101,5 +93,4 @@ def disconnect():
 run the server
 """
 if __name__ == '__main__':
-    socketio.start_background_task(setup_switch)
     socketio.run(app)
