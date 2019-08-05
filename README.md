@@ -49,3 +49,8 @@ The instructions below are based on the instructions available in the Zodiac FX 
 	* In the root context, type the 'update' command
 	* When prompted, begin the firmware update via the XMODEM protocol
 	* If the firmware update is successful, Zodiac FX will automatically restart to complete the update
+
+## Setup
+The following image shows the setup used for all measurements.
+
+![measurement_setup](Demo/static/img/setup.jpg "Measurement Setup")
